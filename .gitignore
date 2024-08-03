@@ -1,5 +1,6 @@
 **/obj_dir
 .idea/
 .vscode/
+output/
 *.png
 *.hex
