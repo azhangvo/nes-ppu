@@ -1,7 +1,10 @@
-module nes_tb;
-    reg clk;
-    reg reset;
-    reg ce;
+module nes_tb (
+    input wire write_enable,
+
+    input wire clk,
+    input wire reset,
+    input wire ce
+);
     reg [31:0] mapper_flags;
     wire [15:0] sample;
     wire [5:0] color;
@@ -46,21 +49,13 @@ module nes_tb;
         .dbgctr(dbgctr)
     );
 
-    // Clock generation
-    initial begin
-        clk = 0;
-        forever #5 clk = ~clk; // 100 MHz clock
-    end
-
     // Testbench procedure
     initial begin
         // Open waveform file
-        $dumpfile("nes.vcd");
-        $dumpvars(0, nes_tb);
+        // $dumpfile("nes.vcd");
+        // $dumpvars(0, nes_tb);
 
         // Initialize signals
-        reset = 1;
-        ce = 0;
         mapper_flags = 0;
         joypad_data = 0;
         audio_channels = 0;
@@ -68,10 +63,10 @@ module nes_tb;
         memory_din_ppu = 0;
 
         // Reset pulse
-        #10 reset = 0;
+        // #10 reset = 0;
 
         // Apply test stimulus
-        #20 ce = 1;
+        // #20 ce = 1;
         mapper_flags = 32'h12345678;  // Example mapper flags
         joypad_data = 2'b10;          // Example joypad data
         audio_channels = 5'b11111;    // Enable all audio channels
@@ -81,9 +76,9 @@ module nes_tb;
         memory_din_ppu = 8'hBB;       // Example PPU memory data
 
         // Run simulation for a sufficient period
-        #1000000;
-        $writememh("frame_buffer.hex", frame_buffer); // Write pixel data to file
-        $finish;
+        // #1000000;
+        // $writememh("frame_buffer.hex", frame_buffer); // Write pixel data to file
+        // $finish;
     end
 
     // Capture pixel data
@@ -91,8 +86,13 @@ module nes_tb;
     always @(posedge clk) begin
         if (ce) begin
             if (scanline < 240 && cycle < 256) begin
-                frame_buffer[scanline * 256 + cycle] <= color; // Capture pixel data
+                frame_buffer[scanline * 256 + cycle] <= {2'b00, color}; // Capture pixel data
             end
+        end
+        if (write_enable) begin
+            $display("Writing frame_buffer to file");
+            $writememh("frame_buffer.hex", frame_buffer); // Write pixel data to file
+            $finish;
         end
     end
 
