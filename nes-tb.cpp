@@ -2,6 +2,7 @@
 #include "verilated.h"
 
 #include <iostream>
+#include <fstream>
 #include <SDL.h>
 
 using namespace std;
@@ -12,6 +13,10 @@ const int H_RES = 256;
 const int V_RES = 240;
 
 int num_cycles = 0;
+
+int rom_size;
+uint8_t *rom;
+uint32_t rom_flags;
 
 typedef struct Pixel {  // for SDL texture
     uint8_t a;  // transparency
@@ -53,6 +58,76 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
     }
 }
 
+// https://www.reddit.com/r/Roms/wiki/index/
+// https://r-roms.github.io/
+// https://ia802706.us.archive.org/view_archive.php?archive=/3/items/ni-roms/roms/Nintendo%20-%20Nintendo%20Entertainment%20System%20%28Headered%29.zip
+int load_rom(int argc, char** argv) {
+
+    // TODO This is just a placeholder, I know it isn't difficult but haven't bothered to use CLI yet
+    const char* filepath = "/Users/kevin/advcomparch/roms/donkeykong.nes";
+    
+    // Open the file in binary mode
+    std::ifstream file(filepath, std::ios::binary | std::ios::ate);
+    
+    if (!file.is_open()) {
+        std::cerr << "Failed to open file: " << filepath << std::endl;
+        return 0;
+    }
+
+    // Determine the size of the file
+    std::streamsize size = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    // Read header shit
+    uint8_t header[16];
+    file.read(reinterpret_cast<char*>(header), 16);
+    
+    if (file.gcount() != 16) {
+        std::cerr << "Failed to read iNES header." << std::endl;
+        return 1;
+    }
+
+    // https://www.nesdev.org/wiki/INES#Flags_7
+    printf("Header 4, 5, 6, 7: %u, %u, %u, %u\n", header[4], header[5], header[6], header[7]);
+
+    uint8_t mapper_low = (header[6] >> 4) & 0x0F;  // Low nibble from byte 6
+    uint8_t mapper_high = (header[7] >> 4) & 0x0F;  // High nibble from byte 7
+
+    uint8_t mapper_number = (mapper_high << 4) | mapper_low;
+
+    std::cout << "Mapper Number: " << static_cast<int>(mapper_number) << std::endl;
+    uint8_t prg_size = header[4] & 0x07;
+    uint8_t chr_size = header[5] & 0x07;
+    printf("prg_size: %u, chr_size: %u\n", prg_size, chr_size);
+
+    // Flags to give to memory mapper
+    rom_flags = mapper_number | (prg_size << 8) | (chr_size << 11);
+    printf("mapper flags: %u\n", rom_flags);
+
+    std::streamsize data_size = size - 16;
+
+    // Allocate memory for the file content
+    rom_size = data_size;
+    rom = new uint8_t[rom_size];
+
+    // Read the file content into the allocated memory
+    if (!file.read(reinterpret_cast<char*>(rom), data_size)) {
+        std::cerr << "Failed to read file: " << filepath << std::endl;
+        delete[] rom;
+        return 0;
+    }
+
+    printf("ROM file size in bytes: %u\n", data_size);
+    // for (int i = 0; i < size; i++) {
+    //     printf("%c", rom_char[i]);
+    // }
+    // printf("\n");
+
+    // Close the file
+    file.close();
+    return 1;
+}
+
 int main(int argc, char** argv) {
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         printf("SDL init failed.\n");
@@ -86,6 +161,12 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    // Load the rom
+    if (!load_rom(argc, argv)) {
+        printf("Rom loading failed!\n");
+        return 1;
+    }
+
     // reference SDL keyboard state array: https://wiki.libsdl.org/SDL_GetKeyboardState
     const Uint8 *keyb_state = SDL_GetKeyboardState(NULL);
 
@@ -109,6 +190,9 @@ int main(int argc, char** argv) {
 
     reset_cycles(dut);
 
+    // Give mapper flags to the nes module
+    dut->mapper_flags = rom_flags;
+
     // write_image(dut);
 
     uint64_t start_ticks = SDL_GetPerformanceCounter();
@@ -116,9 +200,24 @@ int main(int argc, char** argv) {
 
     bool quit = false;
 
+    // What did module request on the last cycle
+    // I know this + related logic can be cleaner, but should be correct for now
+    int prev_memory_addr = 0;
+    bool prev_do_cpu_read = false, prev_do_ppu_read = false;
 
     while (!quit) {
         dut->clk ^= 1;
+
+        // Give the data the NES wants to read
+
+        // printf("before mem_addr: %i, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i\n", prev_memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu);
+        // if (prev_memory_addr < rom_size && rom[prev_memory_addr] != 0) printf("nonzero data at %u: %u\n", prev_memory_addr, rom[prev_memory_addr]);
+        if (prev_do_cpu_read) {
+            dut->memory_din_cpu = prev_memory_addr < rom_size ? rom[prev_memory_addr] : 0;
+        } else if (prev_do_ppu_read) {
+            dut->memory_din_ppu = prev_memory_addr < rom_size ? rom[prev_memory_addr] : 0;
+        }
+
         dut->eval();
         if(dut->clk == 1) {
             num_cycles++;
@@ -131,6 +230,39 @@ int main(int argc, char** argv) {
                 p->g = dut->vga_g * 85;
                 p->r = dut->vga_r * 85;
             }
+
+            // Process memory access requests
+            prev_do_cpu_read = false;
+            prev_do_ppu_read = false;
+
+            // Handle addressing types - I have no idea how to support this generically yet for all types of memory mappers
+            // although I don't feel it's necessary to support every type.
+            // Pretty sure there are some commonly used types - I've tried donkey kong and solar wars, both use Mapper28 in mmu.v
+            // TODO - this is incorrect logic for any files with more than 1 pgr page
+            // Reference https://www.nesdev.org/wiki/INES
+            int memory_addr = dut->memory_addr;
+            if ((memory_addr & (1 << 21))) {
+                memory_addr = 16384 + (memory_addr & 0x1FFF);
+            } else {
+                memory_addr = memory_addr & 0x3FFF;
+            }
+
+            // Write to RAM if applicable, otherwise set read vars
+
+            // printf("mem_addr: %i, dut_mem_addr: %u, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i, rom data: %i, write data: %i\n", memory_addr, dut->memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu, memory_addr < rom_size ? rom[memory_addr] : 0, dut->memory_dout);
+            // if (num_cycles > 500) break;
+            if (memory_addr < rom_size) {
+                if (dut->memory_write) {
+                    rom[memory_addr] = dut->memory_dout;
+                } else if (dut->memory_read_cpu) {
+                    prev_do_cpu_read = true;
+                } else if (dut->memory_read_ppu) {
+                    prev_do_ppu_read = true;
+                }
+            }
+
+            prev_memory_addr = memory_addr;
+
             //printf("rgb: %x, %x, %x", p->r, p->g, p->b);
 
             if (dut->vga_scanline == V_RES && dut->vga_cycle == 0) {
@@ -166,4 +298,5 @@ int main(int argc, char** argv) {
 
     fflush(stdout);
     delete contextp;
+    delete rom;
 }
