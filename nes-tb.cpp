@@ -15,6 +15,8 @@ const int V_RES = 240;
 int num_cycles = 0;
 
 int rom_size;
+int cpu_ram_size = 4096;
+int total_size;
 uint8_t *rom;
 uint32_t rom_flags;
 
@@ -101,14 +103,16 @@ int load_rom(int argc, char** argv) {
     printf("prg_size: %u, chr_size: %u\n", prg_size, chr_size);
 
     // Flags to give to memory mapper
-    rom_flags = mapper_number | (prg_size << 8) | (chr_size << 11);
+    rom_flags = mapper_number | ((prg_size - 1) << 8) | ((chr_size - 1) << 11) | (1 << 15);
     printf("mapper flags: %u\n", rom_flags);
 
     std::streamsize data_size = size - 16;
 
     // Allocate memory for the file content
     rom_size = data_size;
-    rom = new uint8_t[rom_size];
+    rom = new uint8_t[rom_size + cpu_ram_size];
+    total_size = rom_size + cpu_ram_size;
+    fill(rom + rom_size, rom + total_size, 0);
 
     // Read the file content into the allocated memory
     if (!file.read(reinterpret_cast<char*>(rom), data_size)) {
@@ -179,16 +183,16 @@ int main(int argc, char** argv) {
     Verilated::traceEverOn(true);
 
     // dut->write_enable = 0;
-    dut->reset = 1;
-    dut->ce = 0;
-    run_for_cycles(dut, 1);
+    // dut->reset = 1;
+    // dut->ce = 0;
+    // run_for_cycles(dut, 1);
 
     dut->reset = 0;
-    run_for_cycles(dut, 2);
+    // run_for_cycles(dut, 2);
     
     dut->ce = 1;
 
-    reset_cycles(dut);
+    // reset_cycles(dut);
 
     // Give mapper flags to the nes module
     dut->mapper_flags = rom_flags;
@@ -211,11 +215,11 @@ int main(int argc, char** argv) {
         // Give the data the NES wants to read
 
         // printf("before mem_addr: %i, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i\n", prev_memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu);
-        // if (prev_memory_addr < rom_size && rom[prev_memory_addr] != 0) printf("nonzero data at %u: %u\n", prev_memory_addr, rom[prev_memory_addr]);
+        // if (prev_memory_addr < total_size && rom[prev_memory_addr] != 0) printf("nonzero data at %u: %u\n", prev_memory_addr, rom[prev_memory_addr]);
         if (prev_do_cpu_read) {
-            dut->memory_din_cpu = prev_memory_addr < rom_size ? rom[prev_memory_addr] : 0;
+            dut->memory_din_cpu = prev_memory_addr < total_size ? rom[prev_memory_addr] : 0;
         } else if (prev_do_ppu_read) {
-            dut->memory_din_ppu = prev_memory_addr < rom_size ? rom[prev_memory_addr] : 0;
+            dut->memory_din_ppu = prev_memory_addr < total_size ? rom[prev_memory_addr] : 0;
         }
 
         dut->eval();
@@ -241,17 +245,31 @@ int main(int argc, char** argv) {
             // TODO - this is incorrect logic for any files with more than 1 pgr page
             // Reference https://www.nesdev.org/wiki/INES
             int memory_addr = dut->memory_addr;
-            if ((memory_addr & (1 << 21))) {
-                memory_addr = 16384 + (memory_addr & 0x1FFF);
+            if (memory_addr >= 3932160) {
+                // 1111, CARTRAM not implemented
+            } else if (memory_addr >= 3670016) {
+                // 1110, CPU-RAM
+                memory_addr = rom_size + (memory_addr & 0x3FFFF);
+            } else if (memory_addr >= 3145728) {
+                // 1100, CHR-VRAM not implemented
+            } else if (memory_addr >= 2097152) {
+                // 1000, CHR
+                memory_addr = 16384 + (memory_addr & 0xFFFFF);
             } else {
-                memory_addr = memory_addr & 0x3FFF;
+                // 0000, PRG
+                memory_addr = memory_addr;
+            }
+            if ((memory_addr & (1 << 21))) {
+                
+            } else {
+                
             }
 
             // Write to RAM if applicable, otherwise set read vars
 
-            // printf("mem_addr: %i, dut_mem_addr: %u, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i, rom data: %i, write data: %i\n", memory_addr, dut->memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu, memory_addr < rom_size ? rom[memory_addr] : 0, dut->memory_dout);
-            // if (num_cycles > 500) break;
-            if (memory_addr < rom_size) {
+            // printf("mem_addr: %i, dut_mem_addr: %u, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i, rom data: %i, write data: %i\n", memory_addr, dut->memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu, memory_addr < total_size ? rom[memory_addr] : 0, dut->memory_dout);
+            // if (num_cycles > 100) break;
+            if (memory_addr < total_size) {
                 if (dut->memory_write) {
                     rom[memory_addr] = dut->memory_dout;
                 } else if (dut->memory_read_cpu) {
@@ -266,6 +284,7 @@ int main(int argc, char** argv) {
             //printf("rgb: %x, %x, %x", p->r, p->g, p->b);
 
             if (dut->vga_scanline == V_RES && dut->vga_cycle == 0) {
+            // if (dut->vga_cycle == 0) {
                 //printf("scanline, cycle: %d, %d\n", dut->vga_scanline, dut->vga_cycle);
                 // check for quit event
                 SDL_Event e;
