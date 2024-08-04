@@ -259,11 +259,6 @@ int main(int argc, char** argv) {
                 // 0000, PRG
                 memory_addr = memory_addr;
             }
-            if ((memory_addr & (1 << 21))) {
-                
-            } else {
-                
-            }
 
             // Write to RAM if applicable, otherwise set read vars
 
