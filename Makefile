@@ -1,6 +1,8 @@
 .PHONY: run clean clean_images format
 
 SV_FILES=`cat sv_files.txt`
+SDL_CFLAGS = `sdl2-config --cflags`
+SDL_LDFLAGS = `sdl2-config --libs`
 
 all: build
 
@@ -21,7 +23,8 @@ run: build prep_dirs
 	make images
 
 build_baseline:
-	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} lib/ppu.v nes-tb.cpp -DLOAD_PROG
+	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} lib/ppu.v nes-tb.cpp  -DLOAD_PROG \
+	-CFLAGS "${SDL_CFLAGS}" -LDFLAGS "${SDL_LDFLAGS}"
 	
 
 run_baseline: build_baseline prep_dirs

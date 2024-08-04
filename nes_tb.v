@@ -4,7 +4,13 @@ module nes_tb (
 
     input wire clk,
     input wire reset,
-    input wire ce
+    input wire ce,
+
+    output logic [1:0]  vga_r,
+    output logic [1:0]  vga_g,
+    output logic [1:0]  vga_b,
+    output logic [8:0]  vga_cycle,
+    output logic [8:0]  vga_scanline
 );
     reg  [31:0] mapper_flags;
     wire [15:0] sample;
@@ -72,9 +78,15 @@ module nes_tb (
     reg [7:0] frame_buffer [0:256*240-1]; // Example for 256x240 resolution
     always @(posedge clk) begin
         if (ce) begin
-            if (scanline < 240 && cycle < 256) begin
-                frame_buffer[scanline * 256 + cycle] <= {2'b00, color}; // Capture pixel data
-            end
+            // if (scanline < 240 && cycle < 256) begin
+            //     frame_buffer[scanline * 256 + cycle] <= {2'b00, color}; // Capture pixel data
+            // end
+            vga_scanline = scanline;
+            vga_cycle = cycle;
+            vga_r = color[5:4];
+            vga_g = color[3:2];
+            vga_b = color[1:0];
+
         end
     end
 
