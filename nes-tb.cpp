@@ -66,7 +66,7 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
 int load_rom(int argc, char** argv) {
 
     // TODO This is just a placeholder, I know it isn't difficult but haven't bothered to use CLI yet
-    const char* filepath = "/Users/kevin/advcomparch/roms/donkeykong.nes";
+    const char* filepath = "roms/donkeykong.nes";
     
     // Open the file in binary mode
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
