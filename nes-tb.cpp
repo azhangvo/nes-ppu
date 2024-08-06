@@ -16,6 +16,7 @@ int num_cycles = 0;
 
 int rom_size;
 int cpu_ram_size = 4096;
+int chr_vram_size = 4096;
 int total_size;
 uint8_t *rom;
 uint32_t rom_flags;
@@ -110,8 +111,8 @@ int load_rom(int argc, char** argv) {
 
     // Allocate memory for the file content
     rom_size = data_size;
-    rom = new uint8_t[rom_size + cpu_ram_size];
-    total_size = rom_size + cpu_ram_size;
+    rom = new uint8_t[rom_size + cpu_ram_size + chr_vram_size];
+    total_size = rom_size + cpu_ram_size + chr_vram_size;
     fill(rom + rom_size, rom + total_size, 0);
 
     // Read the file content into the allocated memory
@@ -247,11 +248,13 @@ int main(int argc, char** argv) {
             int memory_addr = dut->memory_addr;
             if (memory_addr >= 3932160) {
                 // 1111, CARTRAM not implemented
+                printf("CARTRAM not supported yet !!mem_addr: %i, dut_mem_addr: %u, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i, rom data: %i, write data: %i\n", memory_addr, dut->memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu, memory_addr < total_size ? rom[memory_addr] : 0, dut->memory_dout);
             } else if (memory_addr >= 3670016) {
                 // 1110, CPU-RAM
                 memory_addr = rom_size + (memory_addr & 0x3FFFF);
             } else if (memory_addr >= 3145728) {
-                // 1100, CHR-VRAM not implemented
+                // 1100, CHR-VRAM
+                memory_addr = rom_size + cpu_ram_size + (memory_addr & 0x7FF);
             } else if (memory_addr >= 2097152) {
                 // 1000, CHR
                 memory_addr = 16384 + (memory_addr & 0xFFFFF);
@@ -263,7 +266,7 @@ int main(int argc, char** argv) {
             // Write to RAM if applicable, otherwise set read vars
 
             // printf("mem_addr: %i, dut_mem_addr: %u, mem_write: %i, mem_read_cpu: %i, mem_read_ppu: %i, rom data: %i, write data: %i\n", memory_addr, dut->memory_addr, dut->memory_write, dut->memory_read_cpu, dut->memory_read_ppu, memory_addr < total_size ? rom[memory_addr] : 0, dut->memory_dout);
-            // if (num_cycles > 100) break;
+            // if (num_cycles > 100000) break;
             if (memory_addr < total_size) {
                 if (dut->memory_write) {
                     rom[memory_addr] = dut->memory_dout;
