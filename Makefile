@@ -16,7 +16,8 @@ prep_dirs: clean_images
 	mkdir -p output/hex output/png
 
 build: 
-	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} ppu/ppu.sv nes-tb.cpp -DLOAD_PROG
+	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} ppu/ppu.sv nes-tb.cpp -DLOAD_PROG \
+	-CFLAGS "${SDL_CFLAGS}" -LDFLAGS "${SDL_LDFLAGS}"
 
 run: build prep_dirs
 	./obj_dir/Vnes_tb

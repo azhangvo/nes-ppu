@@ -139,7 +139,10 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    Pixel screenbuffer[H_RES*V_RES] = {{0}};
+    Pixel screenbuffer1[H_RES*V_RES] = {{0}};
+    Pixel screenbuffer2[H_RES*V_RES] = {{0}};
+    Pixel (*screenbuffer)[H_RES*V_RES] = &screenbuffer1;
+    uintptr_t idea = (uintptr_t)&screenbuffer1 ^ (uintptr_t)&screenbuffer2;
 
     SDL_Window*   sdl_window   = NULL;
     SDL_Renderer* sdl_renderer = NULL;
@@ -211,6 +214,9 @@ int main(int argc, char** argv) {
     bool prev_do_cpu_read = false, prev_do_ppu_read = false;
 
     while (!quit) {
+        if(frame_count >= 3) {
+            break;
+        }
         dut->clk ^= 1;
 
         // Give the data the NES wants to read
@@ -229,7 +235,7 @@ int main(int argc, char** argv) {
             dut->cycle_count = num_cycles;
 
             if (dut->vga_scanline < V_RES && dut->vga_cycle < H_RES) {
-                Pixel* p = &screenbuffer[dut->vga_scanline*H_RES + dut->vga_cycle];
+                Pixel* p = &(*screenbuffer)[dut->vga_scanline*H_RES + dut->vga_cycle];
                 p->a = 0xFF;  // transparency
                 p->b = dut->vga_b * 85;
                 p->g = dut->vga_g * 85;
@@ -280,11 +286,18 @@ int main(int argc, char** argv) {
             prev_memory_addr = memory_addr;
 
             //printf("rgb: %x, %x, %x", p->r, p->g, p->b);
+            bool updated = false;
 
             if (dut->vga_scanline == V_RES && dut->vga_cycle == 0) {
             // if (dut->vga_cycle == 0) {
                 //printf("scanline, cycle: %d, %d\n", dut->vga_scanline, dut->vga_cycle);
                 // check for quit event
+                screenbuffer = (Pixel (*)[H_RES*V_RES])((uintptr_t)screenbuffer ^ idea);
+                frame_count++;
+                updated = true;
+            }
+
+            if(!(num_cycles % 1000000) || updated) {
                 SDL_Event e;
                 if (SDL_PollEvent(&e)) {
                     if (e.type == SDL_QUIT) {
@@ -294,11 +307,10 @@ int main(int argc, char** argv) {
 
                 if (keyb_state[SDL_SCANCODE_Q]) quit = true;  // quit if user presses 'Q'
 
-                SDL_UpdateTexture(sdl_texture, NULL, screenbuffer, H_RES*sizeof(Pixel));
+                SDL_UpdateTexture(sdl_texture, NULL, *(Pixel (*)[H_RES*V_RES])((uintptr_t)screenbuffer ^ idea), H_RES*sizeof(Pixel));
                 SDL_RenderClear(sdl_renderer);
                 SDL_RenderCopy(sdl_renderer, sdl_texture, NULL, NULL);
                 SDL_RenderPresent(sdl_renderer);
-                frame_count++;
             }
         }
     }
