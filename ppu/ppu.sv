@@ -22,14 +22,18 @@ module PPU(
     reg [7:0] PPUCTRL;
     // Bit 1 & 0 - 00 = 2000, 01 = 2400, 10 = 2800, 11 = 2C00
     // Bit construct 0010bb00xxxxxxxx
-    // Bit construct 0010bb00hhhhwwww
-    reg [7:0] PPUMASK;
-    reg [7:0] PPUSTATUS;
-    reg [7:0] OAMADDR;
-    reg [7:0] OAMDATA;
-    reg [7:0] PPUSCROLL;
-    reg [7:0] PPUADDR;
-    reg [7:0] PPUDATA;
+    // Bit construct 0010bbhhhhhwwwww
+    reg [7:0]  PPUMASK;
+    reg [6:0]  PPUSTATUS;
+    reg [7:0]  OAMADDR;
+    reg [7:0]  OAMDATA;
+    reg [7:0]  PPUSCROLL;
+    reg [15:0] PPUADDR;
+    reg [7:0]  PPUDATA;
+    reg        w;
+    reg        nmi_active;
+
+    reg [7:0]  ldout;
 
     reg [7:0] cam_position_x;
     reg [7:0] cam_position_y;
@@ -51,6 +55,13 @@ module PPU(
                                  // 101/110 - pattern table tile low
                                  // 111/000 - pattern table tile high
 
+    initial begin
+        w = 0;
+        PPUCTRL = 0;
+        PPUDATA = 0;
+        PPUADDR = 0;
+    end
+
     assign is_end_of_scanline = (!is_even && scanline == 9'b111111111) ? cycle == 340 : cycle == 341;
     assign is_end_of_frame = is_end_of_scanline && scanline == 260;
 
@@ -68,13 +79,42 @@ module PPU(
             cycle <= is_end_of_scanline ? 0 : cycle + 1;
             is_even <= is_end_of_frame ? !is_even : is_even;
 
+            if(is_end_of_scanline && scanline == 240)
+                nmi_active <= 1;
+            if(is_end_of_frame)
+                nmi_active <= 0;
+
             // $display("%d %d %d", cycle, is_in_background_stage, background_stage);
         end
     end
+
+    assign nmi = nmi_active && PPUCTRL[7];
                                  
     always @ (posedge clk) begin
-
+        if (ain == 0 && write) begin
+            // $display("writing to ppuctrl");
+            PPUCTRL <= din;
+        end
+        if (ain == 2 && read) begin
+            // $display("reading ppustatus");
+            ldout = {nmi_active, PPUSTATUS};
+            w <= 0;
+        end
+        if (ain == 6 && write) begin
+            $display("saving address %d %x", w, din);
+            if(!w)
+                PPUADDR[15:8] <= din;
+            else
+                PPUADDR[7:0] <= din;
+            w <= !w;
+        end
+        if (ain == 7 && (write || read)) begin
+            PPUADDR <= PPUADDR + (PPUCTRL[2] ? 32 : 1);
+            // $display("trying to write to data");
+        end
     end
+
+    assign dout = ldout;
 
     assign is_in_background_stage = cycle >= 1 && cycle <= 256;
     wire [8:0] background_stage_cycle;
@@ -86,13 +126,29 @@ module PPU(
     assign next_cam_offset_y = scanline[7:3];
 
     // We want to start loading tile 3 on tick 1
-    // Bit construct 0010bb00hhhhwwww
+    // Bit construct 0010bbhhhhhwwwww
     assign vram_a = 
-            background_stage[2:1] == 0 ? {2'b10, PPUCTRL[1:0], next_cam_offset_y, next_cam_offset_x} :
+            ain == 7 && (write || read)  ?  PPUADDR[13:0]  :
+            background_stage[2:1] == 0  ?  {2'b10, PPUCTRL[1:0], next_cam_offset_y, next_cam_offset_x}  :
             14'b0;
 
-    always @ (posedge clk) begin
+    assign vram_r =
+            ain == 7 && read  ?  1  :
+            background_stage[2:1] == 0  ?  1  :
+            0;
 
+    assign vram_w =
+            ain == 7 && write  ?  1  :
+            0;
+
+    always @ (posedge clk) begin
+        // if (vram_w) begin
+        //     $display("writing, addr %x %x %x", PPUADDR, PPUADDR[13:0], vram_a);
+        // end
+        // if (vram_r) begin
+        //     $display("nametable %d scanline %d cycle %d", PPUCTRL[2], scanline, cycle);
+        //     $display("reading addr %x -> value %x", vram_a, vram_din);
+        // end
     end
 
 endmodule

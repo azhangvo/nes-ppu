@@ -667,6 +667,9 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
     // Reset NMI register when reading from Status
     if (read && ain == 2)
       nmi_occured <= 0;
+    // if (vram_w) begin
+    //     $display("writing, addr %x", vram_a);
+    // end
   end
   
   // If we're triggering a VBLANK NMI 
