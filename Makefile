@@ -43,3 +43,9 @@ clean:
 
 format:
 	verible-verilog-format ${SV_FILES} --inplace && clang-format *.cpp -i
+
+compare:
+	make clean
+	make run > new.out
+	make clean
+	make run_baseline > old.out

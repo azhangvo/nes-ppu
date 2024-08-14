@@ -27,16 +27,16 @@ module PPU(
     reg [6:0]  PPUSTATUS;
     reg [7:0]  OAMADDR;
     reg [7:0]  OAMDATA;
-    reg [7:0]  PPUSCROLL;
+    reg [15:0] PPUSCROLL;
     reg [15:0] PPUADDR;
     reg [7:0]  PPUDATA;
     reg        w;
-    reg        nmi_active;
+    reg        is_in_vblank;
 
     reg [7:0]  ldout;
 
-    reg [7:0] cam_position_x;
-    reg [7:0] cam_position_y;
+    wire [7:0] cam_position_x;
+    wire [7:0] cam_position_y;
     reg [7:0] cam_offset_x;
     reg [7:0] cam_offset_y;
 
@@ -44,7 +44,6 @@ module PPU(
 
     wire is_end_of_scanline; // End of scanline usually occurs on cycle 341, but happens on cycle 340 for special idle scanline 261 (or -1) if the frame is odd
     wire is_end_of_frame; // 260 is the last scanline, end of frame happens when we are on the last scanline and at its end.
-    wire is_in_vblank;
     wire is_entering_vblank; // We should enter vblank on scanline 240
     wire is_exiting_vblank; // We should exit vblank after scanline 260, or on scanline 261 (-1)
     wire is_signaling_cpu; // We should signal the CPU with vblank flag and nmi on tick 1 (second tick) of scanline 240. 
@@ -55,14 +54,17 @@ module PPU(
                                  // 101/110 - pattern table tile low
                                  // 111/000 - pattern table tile high
 
+    assign vram_dout = din;
+
     initial begin
         w = 0;
+        is_even = 0;
         PPUCTRL = 0;
         PPUDATA = 0;
         PPUADDR = 0;
     end
 
-    assign is_end_of_scanline = (!is_even && scanline == 9'b111111111) ? cycle == 340 : cycle == 341;
+    assign is_end_of_scanline = (!is_even && scanline == 9'b111111111) ? cycle == 339 : cycle == 340;
     assign is_end_of_frame = is_end_of_scanline && scanline == 260;
 
     always @ (posedge clk) begin
@@ -70,49 +72,79 @@ module PPU(
             scanline <= 0;
             cycle <= 0;
             is_even <= 0;
+            is_in_vblank <= 1;
         end
         else if(ce) begin
             scanline <= !is_end_of_scanline ? scanline      :
-                        is_end_of_frame     ? -1            :
+                        is_end_of_frame     ? 9'b111111111  :
                                               scanline + 1  ;
 
             cycle <= is_end_of_scanline ? 0 : cycle + 1;
             is_even <= is_end_of_frame ? !is_even : is_even;
 
-            if(is_end_of_scanline && scanline == 240)
-                nmi_active <= 1;
-            if(is_end_of_frame)
-                nmi_active <= 0;
+            if(is_end_of_scanline && scanline == 240) begin
+                is_in_vblank <= 1;
+                // $display("activating nmi %d", PPUCTRL);
+            end
+            if(is_end_of_frame) begin
+                is_in_vblank <= 0;
+                // $display("disabling nmi %d", PPUCTRL);
+            end
 
             // $display("%d %d %d", cycle, is_in_background_stage, background_stage);
         end
     end
 
-    assign nmi = nmi_active && PPUCTRL[7];
+    assign nmi = is_in_vblank && PPUCTRL[7];
                                  
     always @ (posedge clk) begin
-        if (ain == 0 && write) begin
-            // $display("writing to ppuctrl");
-            PPUCTRL <= din;
-        end
-        if (ain == 2 && read) begin
-            // $display("reading ppustatus");
-            ldout = {nmi_active, PPUSTATUS};
-            w <= 0;
-        end
-        if (ain == 6 && write) begin
-            $display("saving address %d %x", w, din);
-            if(!w)
-                PPUADDR[15:8] <= din;
-            else
-                PPUADDR[7:0] <= din;
-            w <= !w;
-        end
-        if (ain == 7 && (write || read)) begin
-            PPUADDR <= PPUADDR + (PPUCTRL[2] ? 32 : 1);
-            // $display("trying to write to data");
+        if (ce) begin
+            if (ain == 0 && write) begin
+                // $display("writing to ppuctrl %x", din);
+                PPUCTRL <= din;
+            end
+            if (ain == 1 && write) begin
+                // $display("writing to ppumask %x", din);
+                PPUMASK <= din;
+            end
+            if (ain == 2 && read) begin
+                is_in_vblank <= 0;
+                w <= 0;
+            end
+            if (ain == 5 && write) begin
+                if(!w)
+                    PPUSCROLL[15:8] <= din;
+                else
+                    PPUSCROLL[7:0] <= din;
+                w <= !w;
+            end
+            if (ain == 6 && write) begin
+                $display("saving address %d %x cycle %d", w, din, cycle);
+                if(!w)
+                    PPUADDR[15:8] <= din;
+                else
+                    PPUADDR[7:0] <= din;
+                w <= !w;
+            end
+            if (ain == 7 && (write || read)) begin
+                PPUADDR <= PPUADDR + (PPUCTRL[2] ? 32 : 1);
+                // $display("trying to write to data");
+            end
+            // if (ain == )
         end
     end
+
+    always @* begin
+        if (ain == 2) begin
+            ldout = {is_in_vblank, PPUSTATUS};
+            // $display("reading ppustatus %x %x %x", {is_in_vblank, PPUSTATUS}, ldout, dout);
+        end else begin
+            ldout = 8'b0;
+        end
+    end
+
+    assign cam_position_x = PPUSCROLL[15:8];
+    assign cam_position_y = PPUSCROLL[7:0];
 
     assign dout = ldout;
 
@@ -134,7 +166,7 @@ module PPU(
 
     assign vram_r =
             ain == 7 && read  ?  1  :
-            background_stage[2:1] == 0  ?  1  :
+            (background_stage[2:1] == 0 && !(is_in_vblank || scanline == 240) && (PPUMASK[4:3] != 0))  ?  1  :
             0;
 
     assign vram_w =

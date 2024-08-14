@@ -181,6 +181,14 @@ module NES(input clk, input reset, input ce,
   reg mapper_irq_delayed;
   CPU cpu(clk, apu_ce && !pause_cpu, reset, from_data_bus, apu_irq_delayed | mapper_irq_delayed, nmi_active, cpu_dout, cpu_addr, cpu_mr, cpu_mw);
 
+  // always @ (posedge clk) begin
+  //   if (apu_ce && !pause_cpu) begin
+  //     // $display("%d %d: %x %x %d %d %d %d %x %d %d %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_read, chr_write, chr_from_ppu);
+  //     $display("%d %x %d %d %x %x %d %d", reset, from_data_bus, apu_irq_delayed | mapper_irq_delayed, nmi_active, cpu_dout, cpu_addr, cpu_mr, cpu_mw);
+  //     $display("%d %d %d %x", apu_cs, ppu_cs, prg_allow, from_data_bus);
+  //   end
+  // end
+
   // -- DMA
   wire [15:0] dma_aout;
   wire dma_aout_enable;
@@ -250,6 +258,13 @@ module NES(input clk, input reset, input ce,
           nmi,
           chr_read, chr_write, chr_addr, chr_to_ppu, chr_from_ppu,
           scanline, cycle, mapper_ppu_flags);
+    
+  // always @ (posedge clk) begin
+  //   if (ce) begin
+  //     // $display("%d %d: %x %x %d %d %d %d %x %d %d %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_read, chr_write, chr_from_ppu);
+  //     $display("%d %d: %x %x %d %d %d %d %x %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_from_ppu);
+  //   end
+  // end
 
   // -- Memory mapping logic
   wire [15:0] prg_addr = addr;

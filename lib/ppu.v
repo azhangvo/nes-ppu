@@ -82,6 +82,7 @@ module LoopyGen(input clk, input ce,
         loopy_t[7:0] <= din;
         loopy_v <= {loopy_t[14:8], din};
       end
+      $display("saving address %d %x cycle %d", ppu_address_latch, din, cycle);
       ppu_address_latch <= !ppu_address_latch;
     end else if (read && ain == 2) begin
       ppu_address_latch <= 0; //Reset PPU address latch
@@ -643,7 +644,7 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
         obj_size <= din[5];
         vbl_enable <= din[7];
         
-        //$write("PPU Control #0 <= %X\n", din);
+        // $write("PPU Control #0 <= %X\n", din);
       end
       1: begin // PPU Control Register 2
         grayscale <= din[0];
