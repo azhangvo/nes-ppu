@@ -262,7 +262,8 @@ module NES(input clk, input reset, input ce,
   // always @ (posedge clk) begin
   //   if (ce) begin
   //     // $display("%d %d: %x %x %d %d %d %d %x %d %d %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_read, chr_write, chr_from_ppu);
-  //     $display("%d %d: %x %x %d %d %d %d %x %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_from_ppu);
+  //     // $display("%d %d: %x %x %d %d %d %d %x %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_from_ppu);
+  //     $display("%d %d: %x %x %d %d", scanline, cycle, addr[2:0], dbus, dma_aout_enable, nmi);
   //   end
   // end
 

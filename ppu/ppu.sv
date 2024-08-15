@@ -64,7 +64,7 @@ module PPU(
         PPUADDR = 0;
     end
 
-    assign is_end_of_scanline = (!is_even && scanline == 9'b111111111) ? cycle == 339 : cycle == 340;
+    assign is_end_of_scanline = (!is_even && scanline == 9'b111111111 && !is_in_vblank && PPUMASK[4:3] != 0) ? cycle == 339 : cycle == 340;
     assign is_end_of_frame = is_end_of_scanline && scanline == 260;
 
     always @ (posedge clk) begin
