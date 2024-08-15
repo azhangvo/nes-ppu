@@ -70,7 +70,7 @@ module nes_tb (
             joypad_bits2 <= joypad_data2;
         end
         if (!joypad_clock[0] && last_joypad_clock[0]) begin
-            if (joypad_bits != 0) $display("%b\n", joypad_bits);
+            // if (joypad_bits != 0) $display("%b\n", joypad_bits);
             joypad_bits <= {1'b0, joypad_bits[7:1]};
         end
         if (!joypad_clock[1] && last_joypad_clock[1])

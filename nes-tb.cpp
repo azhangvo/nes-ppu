@@ -223,9 +223,9 @@ int main(int argc, char** argv) {
     bool prev_do_cpu_read = false, prev_do_ppu_read = false;
 
     while (!quit) {
-        if(frame_count >= 30) {
-            break;
-        }
+        // if(frame_count >= 30) {
+        //     break;
+        // }
         dut->clk ^= 1;
 
         // Give the data the NES wants to read
