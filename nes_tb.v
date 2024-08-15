@@ -10,6 +10,9 @@ module nes_tb (
     input wire [7:0]  memory_din_cpu,
     input wire [7:0]  memory_din_ppu,
 
+    input logic [7:0] joypad_data1,
+    input logic [7:0] joypad_data2,
+
     output logic [1:0]  vga_r,
     output logic [1:0]  vga_g,
     output logic [1:0]  vga_b,
@@ -26,7 +29,7 @@ module nes_tb (
     wire [5:0]  color;
     wire        joypad_strobe;
     wire [1:0]  joypad_clock;
-    reg  [1:0]  joypad_data = 0;
+    // reg  [1:0]  joypad_data = 0;
     reg  [4:0]  audio_channels;
     wire [8:0]  cycle;
     wire [8:0]  scanline;
@@ -43,7 +46,7 @@ module nes_tb (
         .color(color),
         .joypad_strobe(joypad_strobe),
         .joypad_clock(joypad_clock),
-        .joypad_data(joypad_data),
+        .joypad_data({joypad_bits2[0], joypad_bits[0]}),
         .audio_channels(audio_channels),
         .memory_addr(memory_addr),
         .memory_read_cpu(memory_read_cpu),
@@ -57,6 +60,23 @@ module nes_tb (
         .dbgadr(dbgadr),
         .dbgctr(dbgctr)
     );
+
+    reg [1:0] last_joypad_clock;
+    reg [7:0] joypad_bits, joypad_bits2;
+
+    always @(posedge clk) begin
+        if (joypad_strobe) begin
+            joypad_bits <= joypad_data1;
+            joypad_bits2 <= joypad_data2;
+        end
+        if (!joypad_clock[0] && last_joypad_clock[0]) begin
+            if (joypad_bits != 0) $display("%b\n", joypad_bits);
+            joypad_bits <= {1'b0, joypad_bits[7:1]};
+        end
+        if (!joypad_clock[1] && last_joypad_clock[1])
+            joypad_bits2 <= {1'b0, joypad_bits2[7:1]};
+        last_joypad_clock <= joypad_clock;
+    end
 
     // Testbench procedure
     initial begin

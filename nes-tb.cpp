@@ -12,6 +12,15 @@ VerilatedContext *contextp;
 const int H_RES = 256;
 const int V_RES = 240;
 
+const int RIGHT = 7;
+const int LEFT = 6;
+const int DOWN = 5;
+const int UP = 4;
+const int START = 3;
+const int SELECT = 2;
+const int B = 1;
+const int A = 0;
+
 int num_cycles = 0;
 
 int rom_size;
@@ -214,9 +223,6 @@ int main(int argc, char** argv) {
     bool prev_do_cpu_read = false, prev_do_ppu_read = false;
 
     while (!quit) {
-        if(frame_count >= 3) {
-            break;
-        }
         dut->clk ^= 1;
 
         // Give the data the NES wants to read
@@ -299,10 +305,71 @@ int main(int argc, char** argv) {
 
             if(!(num_cycles % 1000000) || updated) {
                 SDL_Event e;
+                uint8_t inp1 = 0;
+                uint8_t inp2 = 0;
                 if (SDL_PollEvent(&e)) {
                     if (e.type == SDL_QUIT) {
                         quit = true;
                     }
+
+                    if (e.type == SDL_KEYDOWN) {
+                        if (e.key.keysym.sym == SDLK_DOWN) {
+                            inp1 |= (1 << DOWN);
+                        }
+                        if (e.key.keysym.sym == SDLK_UP) {
+                            inp1 |= (1 << UP);
+                        }
+                        if (e.key.keysym.sym == SDLK_LEFT) {
+                            inp1 |= (1 << LEFT);
+                        }
+                        if (e.key.keysym.sym == SDLK_RIGHT) {
+                            inp1 |= (1 << RIGHT);
+                        }
+                        if (e.key.keysym.sym == SDLK_a) {
+                            inp1 |= (1 << A);
+                        }
+                        if (e.key.keysym.sym == SDLK_s) {
+                            inp1 |= (1 << B);
+                        }
+                        if (e.key.keysym.sym == SDLK_d) {
+                            inp1 |= (1 << START);
+                        }
+                        if (e.key.keysym.sym == SDLK_f) {
+                            inp1 |= (1 << SELECT);
+                        }
+                        dut->joypad_data1 = inp1;
+                        dut->joypad_data2 = inp2;
+                        // printf("%x\n", inp1);
+
+                    } else if (e.type == SDL_KEYUP) {
+                        if (e.key.keysym.sym == SDLK_DOWN) {
+                            inp1 &= ~(1 << DOWN);
+                        }
+                        if (e.key.keysym.sym == SDLK_UP) {
+                            inp1 &= ~(1 << UP);
+                        }
+                        if (e.key.keysym.sym == SDLK_LEFT) {
+                            inp1 &= ~(1 << LEFT);
+                        }
+                        if (e.key.keysym.sym == SDLK_RIGHT) {
+                            inp1 &= ~(1 << RIGHT);
+                        }
+                        if (e.key.keysym.sym == SDLK_a) {
+                            inp1 &= ~(1 << A);
+                        }
+                        if (e.key.keysym.sym == SDLK_s) {
+                            inp1 &= ~(1 << B);
+                        }
+                        if (e.key.keysym.sym == SDLK_d) {
+                            inp1 &= ~(1 << START);
+                        }
+                        if (e.key.keysym.sym == SDLK_f) {
+                            inp1 &= ~(1 << SELECT);
+                        }
+                        dut->joypad_data1 = inp1;
+                        dut->joypad_data2 = inp2;
+                        // printf("%x\n", inp1);
+                    } 
                 }
 
                 if (keyb_state[SDL_SCANCODE_Q]) quit = true;  // quit if user presses 'Q'
