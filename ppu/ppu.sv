@@ -33,7 +33,7 @@ module PPU(
     reg        w;
     reg        is_in_vblank;
 
-    reg [7:0] scroll_x;
+    reg [4:0] coarse_scroll_x;
     reg [7:0] scroll_y;
 
     reg [7:0] ldout;
@@ -166,7 +166,8 @@ module PPU(
     always @ (posedge clk) begin
         if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
             if (cycle[2:0] == 3 && (cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336)) begin
-                scroll_x <= scroll_x + 1;
+                coarse_scroll_x <= coarse_scroll_x + 1;
+                // $display("increment %x", coarse_scroll_x);
                 // TODO: deal with nametable rollover
             end
 
@@ -176,7 +177,7 @@ module PPU(
             end
 
             if (scanline == 9'b111111111 && cycle == 319) begin // load starting scroll positions into internal registers before cycle 320 of scanline -1
-                scroll_x <= PPUSCROLL[15:8];
+                coarse_scroll_x <= PPUSCROLL[15:11];
                 scroll_y <= PPUSCROLL[7:0];
             end
         end
@@ -186,15 +187,15 @@ module PPU(
     // Bit construct 0010bbhhhhhwwwww
     assign vram_a = 
             ain == 7 && (write || read)  ?  PPUADDR[13:0]                                                      :
-            background_stage[2:1] == 0   ?  {2'b10, PPUCTRL[1:0], scroll_y[7:3], scroll_x[7:3]}                :
-            background_stage[2:1] == 1   ?  {2'b10, PPUCTRL[1:0], 2'b11, 2'b11, scroll_y[7:5], scroll_x[7:5]}  :
+            background_stage[2:1] == 0   ?  {2'b10, PPUCTRL[1:0], scroll_y[7:3], coarse_scroll_x}                :
+            background_stage[2:1] == 1   ?  {2'b10, PPUCTRL[1:0], 2'b11, 2'b11, scroll_y[7:5], coarse_scroll_x[4:2]}  :
             background_stage[2:1] == 2   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b0, scroll_y[2:0]}         :
             background_stage[2:1] == 3   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b1, scroll_y[2:0]}         :
             14'b0;
 
     assign vram_r =
             ain == 7 && read  ?  1  :
-            (background_stage[2:1] == 0 && !(is_in_vblank || scanline == 240) && (PPUMASK[4:3] != 0))  ?  1  :
+            (cycle[0] == 1 && !(is_in_vblank || scanline == 240) && (PPUMASK[4:3] != 0))  ?  1  :
             0;
 
     assign vram_w =
@@ -220,15 +221,15 @@ module PPU(
                 // Name table used for pattern table access
                 bg_nametable_addr <= vram_din;
             end
-            if(cycle[2:0] == 3) begin
+            if(cycle[2:0] == 4) begin
                 // Attribute table
-                bg_attrib_latch <= vram_din[{scroll_y[3], scroll_x[3], 1'b0} +: 2];
+                bg_attrib_latch <= vram_din[{scroll_y[3], coarse_scroll_x[0], 1'b0} +: 2];
             end
-            if(cycle[2:0] == 5) begin
+            if(cycle[2:0] == 6) begin
                 // Pattern table #0
                 bg_palette_latch_1 <= vram_din;
             end
-            if(cycle[2:0] == 7) begin
+            if(cycle[2:0] == 0) begin
                 // Pattern table #1
                 bg_palette_shift_reg_2[15:8] <= vram_din;
                 bg_palette_shift_reg_1[15:8] <= bg_palette_latch_1;
