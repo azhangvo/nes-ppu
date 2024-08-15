@@ -165,9 +165,9 @@ module PPU(
 
     always @ (posedge clk) begin
         if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
-            if (cycle[2:0] == 3 && (cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336)) begin
+            if (cycle[2:0] == 3 && ((cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336))) begin
                 coarse_scroll_x <= coarse_scroll_x + 1;
-                // $display("increment %x", coarse_scroll_x);
+                // $display("increment %d %d %x", scanline, cycle, coarse_scroll_x);
                 // TODO: deal with nametable rollover
             end
 
@@ -176,8 +176,13 @@ module PPU(
                 // TODO: deal with nametable rollover
             end
 
+            if (cycle == 320) begin
+                coarse_scroll_x <= PPUSCROLL[15:11];
+            end
+
             if (scanline == 9'b111111111 && cycle == 319) begin // load starting scroll positions into internal registers before cycle 320 of scanline -1
                 coarse_scroll_x <= PPUSCROLL[15:11];
+                // $display("reset %x", PPUSCROLL[15:8]);
                 scroll_y <= PPUSCROLL[7:0];
             end
         end
@@ -231,8 +236,13 @@ module PPU(
             end
             if(cycle[2:0] == 0) begin
                 // Pattern table #1
-                bg_palette_shift_reg_2[15:8] <= vram_din;
-                bg_palette_shift_reg_1[15:8] <= bg_palette_latch_1;
+                // {<<8{array}}
+                // bg_palette_shift_reg_2[15:8] <= vram_din;
+                // bg_palette_shift_reg_1[15:8] <= bg_palette_latch_1;
+                // bg_attrib_shift_reg_1[7] <= bg_attrib_latch[0];
+                // bg_attrib_shift_reg_2[7] <= bg_attrib_latch[1];
+                bg_palette_shift_reg_2[15:8] <= {<<{vram_din}};
+                bg_palette_shift_reg_1[15:8] <= {<<{bg_palette_latch_1}};
                 bg_attrib_shift_reg_1[7] <= bg_attrib_latch[0];
                 bg_attrib_shift_reg_2[7] <= bg_attrib_latch[1];
             end
