@@ -22,20 +22,35 @@ module Sprite #(parameter INDEX=0) (
     reg [7:0] pattern1;
     reg [7:0] pattern2;
     wire [2:0] index = INDEX;
+    wire [3:0] next_index = INDEX + 1;
 
     always @ (posedge clk) begin
         if (cycle == {3'b100, index, 3'b110}) begin
-            pattern1 <= din;
+            pattern1 <= {<<{din}};
+            if (index == 0)
+                $display("saving %d %x %b", cycle, nametable, din);
         end
-        if (cycle == {3'b100, index, 3'b111}) begin // Dont know if i can get away with this
-            pattern2 <= din;
+        if (cycle == {2'b10, next_index, 3'b000}) begin // Dont know if i can get away with this
+            pattern2 <= {<<{din}};
+            // $display("saving 2 %d %d", index, cycle);
         end
+        // if (index == 0 && cycle == 0 && sprite_enabled) begin
+        //     $display("%d %d %x", scanline, cycle, nametable);
+        // end
     end
 
-    wire [7:0] scroll_x = {coarse_scroll_x, fine_scroll_x};
-    wire enabled = scroll_x >= sprite_data[3] && scroll_x < sprite_data[3] + 8 ? 1 : 0;
+    wire sprite_enabled = sprite_data[1] != 0;
 
-    // assign pixel = {enabled, };
+    // wire [7:0] scroll_x = {coarse_scroll_x, fine_scroll_x};
+    wire [8:0] scroll_x = cycle - 1;
+    wire [7:0] local_x_index = scroll_x[7:0] - sprite_data[3];
+    wire [2:0] local_fine_x_index = local_x_index[2:0];
+    wire enabled = (scroll_x[7:0] >= sprite_data[3] && scroll_x[7:0] < sprite_data[3] + 8 && cycle >= 1 && cycle < 256) ? 1 : 0;
+
+    wire visible = sprite_enabled && enabled && !sprite_data[2][5] && (pattern2[local_fine_x_index] != 0 || pattern1[local_fine_x_index] != 0);
+
+    assign pixel = {visible, sprite_data[2][0], sprite_data[2][1], pattern2[local_fine_x_index], pattern1[local_fine_x_index]};
+    // assign pixel = {sprite_enabled && enabled, sprite_data[2][0], sprite_data[2][1], 2'b10};
 
 endmodule // Sprite
 
@@ -195,7 +210,10 @@ module PPU(
             end
             if (ain == 7 && (write || read)) begin
                 PPUADDR <= PPUADDR + (PPUCTRL[2] ? 32 : 1);
-                // $display("trying to write to data");
+                if(PPUADDR[13:8] == 6'b111111) begin
+                    if (!(PPUADDR[3:2] != 0 && PPUADDR[1:0] == 0))
+                        palette[PPUADDR[4:0]] <= din[5:0];
+                end
             end
             // if (ain == )
         end
@@ -263,12 +281,22 @@ module PPU(
     genvar i;
     generate
         for (i = 0; i < 8; i++) begin
-            Sprite #(.INDEX(i)) sprite (clk, scanline, cycle, coarse_scroll_x, fine_scroll_x, sprite_oam[i], din, sprite_nametable_list[i], sprite_scroll_y_list[i], sprite_pixel_list[i]);
+            Sprite #(.INDEX(i)) sprite (clk, scanline, cycle, coarse_scroll_x, fine_scroll_x, sprite_oam[i], vram_din, sprite_nametable_list[i], sprite_scroll_y_list[i], sprite_pixel_list[i]);
         end
     endgenerate
 
-    wire [7:0] sprite_nametable_address = 0;
-    wire [2:0] sprite_scroll_y = 0;
+    wire [7:0] sprite_nametable_address = sprite_nametable_list[cycle[5:3]];
+    wire [2:0] sprite_scroll_y = sprite_scroll_y_list[cycle[5:3]];
+    wire [4:0] sprite_pixel = 
+            sprite_pixel_list[0][4] ? sprite_pixel_list[0] :
+            sprite_pixel_list[1][4] ? sprite_pixel_list[1] :
+            sprite_pixel_list[2][4] ? sprite_pixel_list[2] :
+            sprite_pixel_list[3][4] ? sprite_pixel_list[3] :
+            sprite_pixel_list[4][4] ? sprite_pixel_list[4] :
+            sprite_pixel_list[5][4] ? sprite_pixel_list[5] :
+            sprite_pixel_list[6][4] ? sprite_pixel_list[6] :
+            sprite_pixel_list[7][4] ? sprite_pixel_list[7] : sprite_pixel_list[0];
+
 
     // We want to start loading tile 3 on tick 1
     // Bit construct 0010bbhhhhhwwwww
@@ -276,8 +304,8 @@ module PPU(
             ain == 7 && (write || read)  ?  PPUADDR[13:0]                                                      :
             background_stage[2:1] == 0   ?  {2'b10, PPUCTRL[1:0], scroll_y[7:3], coarse_scroll_x}                :
             background_stage[2:1] == 1   ?  {2'b10, PPUCTRL[1:0], 2'b11, 2'b11, scroll_y[7:5], coarse_scroll_x[4:2]}  :
-            background_stage[2:1] == 2   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b0, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
-            background_stage[2:1] == 3   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b1, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
+            background_stage[2:1] == 2   ?  {1'b0, cycle >= 256 && cycle < 320 ? PPUCTRL[3] : PPUCTRL[4], cycle >= 256 && cycle < 320 ? sprite_nametable_address : bg_nametable_addr, 1'b0, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
+            background_stage[2:1] == 3   ?  {1'b0, cycle >= 256 && cycle < 320 ? PPUCTRL[3] : PPUCTRL[4], cycle >= 256 && cycle < 320 ? sprite_nametable_address : bg_nametable_addr, 1'b1, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
             14'b0;
 
     assign vram_r =
@@ -382,10 +410,19 @@ module PPU(
     end
 
     assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
+    // assign bg_pixel = {bg_attrib_shift_reg_1[0], bg_attrib_shift_reg_2[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
+    // assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_1[0], bg_palette_shift_reg_2[0]}; // TODO implement fine x
 
-    assign color = palette[{1'b0, bg_pixel}]; // TODO implement obj
+    wire [4:0] pixel = sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel};
+    assign color = palette[pixel]; // TODO implement obj
 
     always @ (posedge clk) begin
+        if (cycle == {3'b100, 3'b0, 3'b101} || cycle == {3'b100, 3'b0, 3'b110}) begin
+            $display("%x %d %x", vram_a, vram_r, din);
+        end
+        // if (ce && bg_pixel != 0) begin
+        //     $display("%d pixel %x %x", scanline, bg_pixel, color);
+        // end
         // if (vram_w) begin
         //     $display("writing, addr %x %x %x", PPUADDR, PPUADDR[13:0], vram_a);
         // end
