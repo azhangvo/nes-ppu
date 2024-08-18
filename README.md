@@ -21,9 +21,11 @@ We use SDL2 to simulate both display and input. For display, the PPU outputs a `
 
 Input is also handled by SDL2, and we use keyboard input to simulate an NES controller, with each of the 8 buttons being mapped to a key. The controllers (2 of them) write to address `$4016` and `$4017` respectively, to indicate to the NES that it should strobe the controllers' states. Once these adresses go low, the states are captured in two shift registers, which the NES reads bit-by-bit. To simulate this, we use SDL2 to capture the keyboard input and create an 8-long vector of press states, which is passed as the controller state to the NES. We also write to the previously mentioned addresses to capture this provided vector and handle inputs in `NES.v`.
 
-### ROM Loading
+### ROM Loading and Memory Access
 
-(TODO: Kevin)
+To run a game with our NES modules, we need to load a game ROM. I got game romes from archive.org (specifically here for relevant NES ones - https://ia802706.us.archive.org/view_archive.php?archive=/3/items/ni-roms/roms/Nintendo%20-%20Nintendo%20Entertainment%20System%20%28Headered%29.zip). We read the 16 byte header to extract the mapper number and number of pages (reference for header information - https://www.nesdev.org/wiki/INES#Flags_7). Then, we copy the rest of the ROM into our memory block. In this design, we use one memory block to store the ROM, RAM, etc. and just index into it accordingly - big array with ROM, CPU-RAM, CHR-VRAM placed one after the other.
+
+During simulation, we keep track of requests for memory read and write operations, and perform the appropriate actions/return the correct data to the nes module. For memory accesses, we differentiate between the different types of accesses and index into the right place in memory. 
 
 ### PPU Implementation
 
