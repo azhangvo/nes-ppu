@@ -235,7 +235,7 @@ module NES(input clk, input reset, input ce,
           apu_irq);
 
   // Joypads are mapped into the APU's range.
-  wire joypad1_cs = 1;
+  wire joypad1_cs = (addr == 'h4016);
   wire joypad2_cs = (addr == 'h4017);
   assign joypad_strobe = (joypad1_cs && mw_int && cpu_dout[0]);
   assign joypad_clock =  {joypad2_cs && mr_int, joypad1_cs && mr_int};
