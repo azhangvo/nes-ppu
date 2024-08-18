@@ -1,3 +1,44 @@
+module Sprite #(parameter INDEX=0) (
+        input        clk,
+        input  [8:0] scanline,
+        input  [8:0] cycle,
+        input  [4:0] coarse_scroll_x,
+        input  [2:0] fine_scroll_x,
+        input  [7:0] sprite_data [3:0],
+        input  [7:0] din,
+        output [7:0] nametable,
+        output [2:0] local_y_scroll,
+        output [4:0] pixel
+    );
+
+    // byte 0 represents y offset
+    // byte 1 is sprite tile number
+    // byte 2 is sprite attribute
+    // byte 3 represents x offset
+
+    assign local_y_scroll = scanline[2:0] - sprite_data[0][2:0];
+    assign nametable = sprite_data[1];
+
+    reg [7:0] pattern1;
+    reg [7:0] pattern2;
+    wire [2:0] index = INDEX;
+
+    always @ (posedge clk) begin
+        if (cycle == {3'b100, index, 3'b110}) begin
+            pattern1 <= din;
+        end
+        if (cycle == {3'b100, index, 3'b111}) begin // Dont know if i can get away with this
+            pattern2 <= din;
+        end
+    end
+
+    wire [7:0] scroll_x = {coarse_scroll_x, fine_scroll_x};
+    wire enabled = scroll_x >= sprite_data[3] && scroll_x < sprite_data[3] + 8 ? 1 : 0;
+
+    // assign pixel = {enabled, };
+
+endmodule // Sprite
+
 module PPU(
         input clk, // clock signal, should run 3x times cpu clock signal
         input ce, // probably chip enable, should be enabled when possible
@@ -34,6 +75,7 @@ module PPU(
     reg        is_in_vblank;
 
     reg [4:0] coarse_scroll_x;
+    reg [2:0] fine_scroll_x;
     reg [7:0] scroll_y;
 
     reg [7:0] ldout;
@@ -58,6 +100,11 @@ module PPU(
                                  // 011/100 - attribute table byte
                                  // 101/110 - pattern table tile low
                                  // 111/000 - pattern table tile high
+
+    reg [7:0] oam [255:0];
+    reg [7:0] sprite_oam [7:0][3:0];
+    reg oam_enable;
+    reg [5:0] sprite_index;
 
     reg [5:0] palette [0:31];
     initial begin
@@ -121,6 +168,16 @@ module PPU(
                 is_in_vblank <= 0;
                 w <= 0;
             end
+            if (ain == 3 && write) begin
+                OAMADDR <= din;
+            end
+            if (ain == 4 && write) begin
+                oam[OAMADDR] <= din;
+                OAMADDR <= OAMADDR + 1;
+            end
+            if (ain == 4 && read) begin
+                ldout = oam[OAMADDR];
+            end
             if (ain == 5 && write) begin
                 if(!w)
                     PPUSCROLL[15:8] <= din;
@@ -170,23 +227,48 @@ module PPU(
                 // $display("increment %d %d %x", scanline, cycle, coarse_scroll_x);
                 // TODO: deal with nametable rollover
             end
+            if ((cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336)) begin
+                fine_scroll_x <= fine_scroll_x + 1;
+                // $display("increment %d %d %x", scanline, cycle, coarse_scroll_x);
+                // TODO: deal with nametable rollover
+            end
 
             if (cycle == 251) begin
                 scroll_y <= scroll_y + 1;
                 // TODO: deal with nametable rollover
             end
 
+            if (cycle >= 257 && cycle < 320) begin
+                OAMADDR <= 0;
+            end
+
             if (cycle == 320) begin
                 coarse_scroll_x <= PPUSCROLL[15:11];
+                fine_scroll_x <= PPUSCROLL[10:8];
             end
 
             if (scanline == 9'b111111111 && cycle == 319) begin // load starting scroll positions into internal registers before cycle 320 of scanline -1
                 coarse_scroll_x <= PPUSCROLL[15:11];
+                fine_scroll_x <= PPUSCROLL[10:8];
                 // $display("reset %x", PPUSCROLL[15:8]);
                 scroll_y <= PPUSCROLL[7:0];
             end
         end
     end
+
+    wire [7:0] sprite_nametable_list [7:0];
+    wire [2:0] sprite_scroll_y_list  [7:0];
+    wire [4:0] sprite_pixel_list     [7:0];
+
+    genvar i;
+    generate
+        for (i = 0; i < 8; i++) begin
+            Sprite #(.INDEX(i)) sprite (clk, scanline, cycle, coarse_scroll_x, fine_scroll_x, sprite_oam[i], din, sprite_nametable_list[i], sprite_scroll_y_list[i], sprite_pixel_list[i]);
+        end
+    endgenerate
+
+    wire [7:0] sprite_nametable_address = 0;
+    wire [2:0] sprite_scroll_y = 0;
 
     // We want to start loading tile 3 on tick 1
     // Bit construct 0010bbhhhhhwwwww
@@ -194,8 +276,8 @@ module PPU(
             ain == 7 && (write || read)  ?  PPUADDR[13:0]                                                      :
             background_stage[2:1] == 0   ?  {2'b10, PPUCTRL[1:0], scroll_y[7:3], coarse_scroll_x}                :
             background_stage[2:1] == 1   ?  {2'b10, PPUCTRL[1:0], 2'b11, 2'b11, scroll_y[7:5], coarse_scroll_x[4:2]}  :
-            background_stage[2:1] == 2   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b0, scroll_y[2:0]}         :
-            background_stage[2:1] == 3   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b1, scroll_y[2:0]}         :
+            background_stage[2:1] == 2   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b0, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
+            background_stage[2:1] == 3   ?  {1'b0, PPUCTRL[4], bg_nametable_addr, 1'b1, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
             14'b0;
 
     assign vram_r =
@@ -222,7 +304,7 @@ module PPU(
             bg_palette_shift_reg_2[14:0] <= bg_palette_shift_reg_2[15:1];
             bg_attrib_shift_reg_1[6:0] <= bg_attrib_shift_reg_1[7:1];
             bg_attrib_shift_reg_2[6:0] <= bg_attrib_shift_reg_2[7:1];
-            if (cycle[2:0] == 1) begin
+            if (cycle[2:0] == 2) begin
                 // Name table used for pattern table access
                 bg_nametable_addr <= vram_din;
             end
@@ -246,6 +328,56 @@ module PPU(
                 bg_attrib_shift_reg_1[7] <= bg_attrib_latch[0];
                 bg_attrib_shift_reg_2[7] <= bg_attrib_latch[1];
             end
+        end
+    end
+
+    reg [1:0] oam_write_status;
+    reg [2:0] secondary_sprite_index;
+
+    always @ (posedge clk) begin
+        if (cycle >= 1 && cycle <= 64) begin
+            sprite_oam[cycle[5:3]][cycle[2:1]] <= 0;
+        end
+        if (cycle == 64) begin
+            oam_enable <= 1;
+            oam_write_status <= 0;
+            sprite_index <= 0;
+            secondary_sprite_index <= 0;
+        end
+        if (cycle >= 65 && cycle <= 256 && cycle[0] == 0) begin
+            case (oam_write_status)
+            0: begin
+                if (oam[{sprite_index, 2'b00}] >= scroll_y && oam[{sprite_index, 2'b00}] <= scroll_y + 8) begin // check y coordinate, TODO assuming 8x8
+                    if(oam_enable) begin
+                        oam_write_status <= 1;
+                        sprite_oam[secondary_sprite_index][0] <= oam[{sprite_index, 2'b00}];
+                    end else begin
+                        // TODO overflow
+                    end
+                end else begin
+                    sprite_index <= sprite_index + 1;
+                    if(sprite_index == 63) begin
+                        oam_enable <= 0;
+                    end
+                end
+            end
+            1: begin
+                oam_write_status <= 2;
+                sprite_oam[secondary_sprite_index][1] <= oam[{sprite_index, 2'b01}];
+            end
+            2: begin
+                oam_write_status <= 3;
+                sprite_oam[secondary_sprite_index][2] <= oam[{sprite_index, 2'b10}];
+            end
+            3: begin
+                oam_write_status <= 0;
+                secondary_sprite_index <= secondary_sprite_index + 1;
+                sprite_oam[secondary_sprite_index][3] <= oam[{sprite_index, 2'b11}];
+                if (secondary_sprite_index == 7) begin
+                    oam_enable <= 0;
+                end
+            end
+            endcase
         end
     end
 
