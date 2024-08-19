@@ -16,22 +16,28 @@ module Sprite #(parameter INDEX=0) (
     // byte 2 is sprite attribute
     // byte 3 represents x offset
 
-    assign local_y_scroll = scanline[2:0] - sprite_data[0][2:0];
+    assign local_y_scroll = sprite_data[2][7] ? sprite_data[0][2:0] - scanline[2:0] : scanline[2:0] - sprite_data[0][2:0];
     assign nametable = sprite_data[1];
 
     reg [7:0] pattern1;
     reg [7:0] pattern2;
+    reg [7:0] offset_x;
+    reg [7:0] offset_y;
+    reg [7:0] attrib;
     wire [2:0] index = INDEX;
     wire [3:0] next_index = INDEX + 1;
 
     always @ (posedge clk) begin
         if (cycle == {3'b100, index, 3'b110}) begin
-            pattern1 <= {<<{din}};
-            if (index == 0)
-                $display("saving %d %x %b", cycle, nametable, din);
+            pattern1 <= sprite_data[2][6] ? din : {<<{din}};
+            // if (index == 0)
+            //     $display("saving %d %x %b", cycle, nametable, din);
         end
         if (cycle == {2'b10, next_index, 3'b000}) begin // Dont know if i can get away with this
-            pattern2 <= {<<{din}};
+            pattern2 <= sprite_data[2][6] ? din : {<<{din}};
+            offset_x <= sprite_data[3];
+            offset_y <= sprite_data[0];
+            attrib <= sprite_data[2];
             // $display("saving 2 %d %d", index, cycle);
         end
         // if (index == 0 && cycle == 0 && sprite_enabled) begin
@@ -39,18 +45,26 @@ module Sprite #(parameter INDEX=0) (
         // end
     end
 
-    wire sprite_enabled = sprite_data[1] != 0;
+    wire sprite_enabled = offset_y != 0 || offset_x != 0 || attrib != 0;
+    // wire sprite_enabled = 1;
 
     // wire [7:0] scroll_x = {coarse_scroll_x, fine_scroll_x};
     wire [8:0] scroll_x = cycle - 1;
-    wire [7:0] local_x_index = scroll_x[7:0] - sprite_data[3];
+    wire [7:0] local_x_index = scroll_x[7:0] - offset_x;
     wire [2:0] local_fine_x_index = local_x_index[2:0];
-    wire enabled = (scroll_x[7:0] >= sprite_data[3] && scroll_x[7:0] < sprite_data[3] + 8 && cycle >= 1 && cycle < 256) ? 1 : 0;
+    wire enabled = (scroll_x[7:0] >= offset_x && scroll_x[7:0] < offset_x + 8 && cycle >= 1 && cycle < 256) ? 1 : 0;
 
     wire visible = sprite_enabled && enabled && !sprite_data[2][5] && (pattern2[local_fine_x_index] != 0 || pattern1[local_fine_x_index] != 0);
 
-    assign pixel = {visible, sprite_data[2][0], sprite_data[2][1], pattern2[local_fine_x_index], pattern1[local_fine_x_index]};
+    assign pixel = {visible, attrib[0], attrib[1], pattern2[local_fine_x_index], pattern1[local_fine_x_index]};
+    // assign pixel = {visible, 4'b0110};
     // assign pixel = {sprite_enabled && enabled, sprite_data[2][0], sprite_data[2][1], 2'b10};
+
+    // always @ (posedge clk) begin
+    //     if (index == 7 && enabled && sprite_enabled) begin
+    //         $display("%d %d %d %d %d", visible, scroll_x, local_fine_x_index, sprite_data[3], cycle);
+    //     end
+    // end
 
 endmodule // Sprite
 
@@ -363,7 +377,7 @@ module PPU(
     reg [2:0] secondary_sprite_index;
 
     always @ (posedge clk) begin
-        if (cycle >= 1 && cycle <= 64) begin
+        if (cycle <= 64) begin
             sprite_oam[cycle[5:3]][cycle[2:1]] <= 0;
         end
         if (cycle == 64) begin
@@ -375,7 +389,7 @@ module PPU(
         if (cycle >= 65 && cycle <= 256 && cycle[0] == 0) begin
             case (oam_write_status)
             0: begin
-                if (oam[{sprite_index, 2'b00}] >= scroll_y && oam[{sprite_index, 2'b00}] <= scroll_y + 8) begin // check y coordinate, TODO assuming 8x8
+                if (scroll_y >= oam[{sprite_index, 2'b00}] && scroll_y < oam[{sprite_index, 2'b00}] + 8) begin // check y coordinate, TODO assuming 8x8
                     if(oam_enable) begin
                         oam_write_status <= 1;
                         sprite_oam[secondary_sprite_index][0] <= oam[{sprite_index, 2'b00}];
@@ -400,6 +414,7 @@ module PPU(
             3: begin
                 oam_write_status <= 0;
                 secondary_sprite_index <= secondary_sprite_index + 1;
+                sprite_index <= sprite_index + 1;
                 sprite_oam[secondary_sprite_index][3] <= oam[{sprite_index, 2'b11}];
                 if (secondary_sprite_index == 7) begin
                     oam_enable <= 0;
@@ -417,9 +432,9 @@ module PPU(
     assign color = palette[pixel]; // TODO implement obj
 
     always @ (posedge clk) begin
-        if (cycle == {3'b100, 3'b0, 3'b101} || cycle == {3'b100, 3'b0, 3'b110}) begin
-            $display("%x %d %x", vram_a, vram_r, din);
-        end
+        // if (cycle == {3'b100, 3'b0, 3'b101} || cycle == {3'b100, 3'b0, 3'b110}) begin
+        //     $display("%x %d %x", vram_a, vram_r, din);
+        // end
         // if (ce && bg_pixel != 0) begin
         //     $display("%d pixel %x %x", scanline, bg_pixel, color);
         // end
