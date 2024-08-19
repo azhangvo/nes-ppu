@@ -329,7 +329,8 @@ module PPU(
             0;
 
     assign vram_w =
-            ain == 7 && write  ?  1  :
+            ain == 7 && write && PPUADDR[13:8] != 6'b111111  ?  1  :
+            // ain == 7 && write ?  1  :
             0;
 
     reg  [7:0]  bg_palette_latch_1;
@@ -430,9 +431,13 @@ module PPU(
     // assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_1[0], bg_palette_shift_reg_2[0]}; // TODO implement fine x
 
     wire [4:0] pixel = sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel};
-    assign color = palette[pixel]; // TODO implement obj
+    // assign color = scanline < 192 && cycle < 40 ? 6'b110000 : palette[pixel];
+    assign color = palette[pixel];
 
     always @ (posedge clk) begin
+        // if (scanline >= 190 && scanline < 202 && cycle == 2) begin
+        //     $display("%d %d %x %d %b", scanline, cycle, vram_a, vram_r, vram_din);
+        // end
         // if (cycle == {3'b100, 3'b0, 3'b101} || cycle == {3'b100, 3'b0, 3'b110}) begin
         //     $display("%x %d %x", vram_a, vram_r, din);
         // end
@@ -440,7 +445,7 @@ module PPU(
         //     $display("%d pixel %x %x", scanline, bg_pixel, color);
         // end
         // if (vram_w) begin
-        //     $display("writing, addr %x %x %x", PPUADDR, PPUADDR[13:0], vram_a);
+        //     $display("writing, addr %x %b", vram_a, vram_dout);
         // end
         // if (vram_r) begin
         //     $display("nametable %d scanline %d cycle %d", PPUCTRL[2], scanline, cycle);
