@@ -56,7 +56,8 @@ module Sprite #(parameter INDEX=0) (
 
     wire visible = sprite_enabled && enabled && !sprite_data[2][5] && (pattern2[local_fine_x_index] != 0 || pattern1[local_fine_x_index] != 0);
 
-    assign pixel = {visible, attrib[0], attrib[1], pattern2[local_fine_x_index], pattern1[local_fine_x_index]};
+    // assign pixel = {visible, attrib[0], attrib[1], pattern2[local_fine_x_index], pattern1[local_fine_x_index]};
+    assign pixel = {visible, attrib[1], attrib[0], pattern2[local_fine_x_index], pattern1[local_fine_x_index]};
     // assign pixel = {visible, 4'b0110};
     // assign pixel = {sprite_enabled && enabled, sprite_data[2][0], sprite_data[2][1], 2'b10};
 
