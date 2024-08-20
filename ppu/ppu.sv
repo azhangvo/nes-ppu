@@ -343,7 +343,7 @@ module PPU(
 
     always @ (posedge clk) begin
         // if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
-        if (cycle < 336) begin
+        if (cycle <= 336 && cycle > 0) begin
             bg_palette_shift_reg_1[14:0] <= bg_palette_shift_reg_1[15:1];
             bg_palette_shift_reg_2[14:0] <= bg_palette_shift_reg_2[15:1];
             bg_attrib_shift_reg_1[6:0] <= bg_attrib_shift_reg_1[7:1];
@@ -431,10 +431,13 @@ module PPU(
     // assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_1[0], bg_palette_shift_reg_2[0]}; // TODO implement fine x
 
     wire [4:0] pixel = sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel};
-    // assign color = scanline < 192 && cycle < 40 ? 6'b110000 : palette[pixel];
+    // assign color = scanline < 64 && cycle < 9 ? 6'b110000 : palette[pixel];
     assign color = palette[pixel];
 
     always @ (posedge clk) begin
+        // if (scanline >= 63 && scanline < 72 && ((cycle >= 1 && cycle <= 16) || cycle > 320)) begin
+        //     $display("%d %d %x %d %b %b %b %b", scanline, cycle, vram_a, vram_r, vram_din, bg_pixel, bg_palette_shift_reg_1, bg_palette_shift_reg_2);
+        // end
         // if (scanline >= 190 && scanline < 202 && cycle == 2) begin
         //     $display("%d %d %x %d %b", scanline, cycle, vram_a, vram_r, vram_din);
         // end
