@@ -255,7 +255,7 @@ module PPU(
 
     always @ (posedge clk) begin
         if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
-            if (cycle[2:0] == 3 && ((cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336))) begin
+            if (cycle[2:0] == 4 && ((cycle >= 1 && cycle <= 256) || (cycle >= 320 && cycle < 336))) begin
                 coarse_scroll_x <= coarse_scroll_x + 1;
                 // $display("increment %d %d %x", scanline, cycle, coarse_scroll_x);
                 // TODO: deal with nametable rollover
@@ -354,7 +354,7 @@ module PPU(
             end
             if(cycle[2:0] == 4) begin
                 // Attribute table
-                bg_attrib_latch <= vram_din[{scroll_y[3], coarse_scroll_x[0], 1'b0} +: 2];
+                bg_attrib_latch <= vram_din[{scroll_y[4], coarse_scroll_x[1], 1'b0} +: 2];
             end
             if(cycle[2:0] == 6) begin
                 // Pattern table #0
@@ -427,16 +427,17 @@ module PPU(
     end
 
     assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
+    // assign bg_pixel = {2'b00, bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
     // assign bg_pixel = {bg_attrib_shift_reg_1[0], bg_attrib_shift_reg_2[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
     // assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_1[0], bg_palette_shift_reg_2[0]}; // TODO implement fine x
 
     wire [4:0] pixel = sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel};
-    // assign color = scanline < 64 && cycle < 9 ? 6'b110000 : palette[pixel];
+    // assign color = scanline < 80 && cycle < 65 ? 6'b110000 : palette[pixel];
     assign color = palette[pixel];
 
     always @ (posedge clk) begin
-        // if (scanline >= 63 && scanline < 72 && ((cycle >= 1 && cycle <= 16) || cycle > 320)) begin
-        //     $display("%d %d %x %d %b %b %b %b", scanline, cycle, vram_a, vram_r, vram_din, bg_pixel, bg_palette_shift_reg_1, bg_palette_shift_reg_2);
+        // if (scanline >= 72 && scanline < 88 && ((cycle >= 57 - 8 && cycle <= 73))) begin
+        //     $display("%d %d %x %d %b %b %b %b %b %b", scanline, cycle, vram_a, vram_r, vram_din, bg_pixel, bg_attrib_shift_reg_1, bg_attrib_shift_reg_2, bg_palette_shift_reg_1, bg_palette_shift_reg_2);
         // end
         // if (scanline >= 190 && scanline < 202 && cycle == 2) begin
         //     $display("%d %d %x %d %b", scanline, cycle, vram_a, vram_r, vram_din);
