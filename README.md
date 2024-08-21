@@ -61,9 +61,7 @@ To choose the pixels, sprites are given priority over the background if they are
 Files written:
 - `ppu/ppu.v`: Written from scratch PPU, only uses I/O port signature from `lib/ppu.v`
 - `nes-tb.cpp`: Custom testbench, contains all the simulation logic (display + inputs) and ROM loading logic
-
-Files modified:
-- `nes-tb.v`: changed input signatures for Verilator control
+- `nes-tb.v`: Adapter testbench for verilator control
 
 Files reused:
 - `lib/cpu.v`
