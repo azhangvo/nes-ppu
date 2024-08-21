@@ -9,7 +9,7 @@ Our goal with this project was to implement the Picture Processing Unit (PPU) of
 
 ## Our Implementation
 
-We based our code on the followign repository which implemented an NES system to be run on an FPGA: [repo](https://github.com/strigeus/fpganes/tree/master).
+We based our code on the following repository which implemented an NES system to be run on an FPGA: [repo](https://github.com/strigeus/fpganes/tree/master).
 
 We used the CPU, Memory Mapper, and most of the mainboard logic implemented in the repo as is, and rewrote the PPU from scratch, based only on the original design's input/output port signatures. Since we are not running our implementation on FPGA, major changes were made to `nes_tb.v`, to support simulating display and input. We also wrote our own custom ROM loader to place game code in memory, since we use an array to simulate RAM.
 
@@ -17,9 +17,9 @@ Our final design was able to successfully render and play **Donkey Kong** and **
 
 ### Display and Input
 
-We use SDL2 to simulate both display and input. For display, the PPU outputs a `color` vector, which is an RGB value for a single pixel, whose coordinates are represented by the values `scanline` and `cycle`. We simply create a display window using SDL2 and write each pixel to a frame buffer, which is flushed to the window every time a full frame is written. Through this, we are able to achieve 20-40 FPS (machine dependent), which is more than playable.
+We use SDL2 to simulate both display and input. For display, the PPU outputs a `color` vector per pixel to be displayed, whose coordinates are represented by the values `scanline` and `cycle` which is used to index into a palette array, containing RGB hex codes for various colors used. We simply create a display window using SDL2 and write each pixel to a frame buffer, which is flushed to the window every time a full frame is written. Through this, we are able to achieve 20-40 FPS (machine dependent), which is more than playable.
 
-Input is also handled by SDL2, and we use keyboard input to simulate an NES controller, with each of the 8 buttons being mapped to a key. The controllers (2 of them) write to address `$4016` and `$4017` respectively, to indicate to the NES that it should strobe the controllers' states. Once these adresses go low, the states are captured in two shift registers, which the NES reads bit-by-bit. To simulate this, we use SDL2 to capture the keyboard input and create an 8-long vector of press states, which is passed as the controller state to the NES. We also write to the previously mentioned addresses to capture this provided vector and handle inputs in `NES.v`.
+Input is also handled by SDL2, and we use keyboard input to simulate an NES controller, with each of the 8 buttons being mapped to a key. The controllers (2 of them) write to address `$4016` and `$4017` respectively, to indicate to the NES that it should strobe the controllers' states. Once these adresses go low, the states are captured in two shift registers, which the NES reads bit-by-bit. To simulate this, we use SDL2 to capture the keyboard input and create an 8-long vector of press states, which is passed as the controller state to the NES. We provide functionality for player 1, though adding player 2 functionality just involves choosing a set of keys to represent inputs and reading their states on keypress.
 
 ### ROM Loading and Memory Access
 
@@ -30,6 +30,25 @@ During simulation, we keep track of requests for memory read and write operation
 ### PPU Implementation
 
 (TODO: Arthur)
+
+### Summary of Contributions
+
+Files written:
+- `ppu/ppu.v`: Written from scratch PPU, only uses I/O port signature from `lib/ppu.v`
+- `nes-tb.cpp`: Custom testbench, contains all the simulation logic (display + inputs) and ROM loading logic
+
+Files modified:
+- `nes-tb.v`: changed input signatures for Verilator control
+
+Files reused:
+- `lib/cpu.v`
+- `lib/MicroCode.v`: ISA for CPU
+- `lib/nes.v`: mainboard logic
+- `lib/mmu.v`: memory mappers
+- `lib/compat.v`: component / gate logic
+- `apu.v`: Audio Processing unit, used for controllers
+
+**Use `make run` to run our impl**
 
 ## Conclusions
 
