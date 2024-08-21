@@ -13,9 +13,8 @@ module nes_tb (
     input logic [7:0] joypad_data1,
     input logic [7:0] joypad_data2,
 
-    output logic [1:0]  vga_r,
-    output logic [1:0]  vga_g,
-    output logic [1:0]  vga_b,
+    output logic [1:0]  vga_luma,
+    output logic [3:0]  vga_hue,
     output logic [8:0]  vga_cycle,
     output logic [8:0]  vga_scanline,
 
@@ -105,9 +104,8 @@ module nes_tb (
             // end
             vga_scanline = scanline;
             vga_cycle = cycle;
-            vga_r = color[5:4];
-            vga_g = color[3:2];
-            vga_b = color[1:0];
+            vga_luma = color[5:4];
+            vga_hue = color[3:0];
 
         end
     end

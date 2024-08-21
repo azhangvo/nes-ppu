@@ -21,6 +21,13 @@ const int SELECT = 2;
 const int B = 1;
 const int A = 0;
 
+const int PALETTE [64] {
+    0x555555, 0x001773, 0x000786, 0x2e0578, 0x59024d, 0x720011, 0x6e0000, 0x4c0800, 0x171b00, 0x002a00, 0x003100, 0x002e08, 0x002645, 0x000000, 0x000000, 0x000000,
+    0xa5a5a5, 0x0057c6, 0x223fe5, 0x6e28d9, 0xae1aa6, 0xd21759, 0xd12107, 0xa73700, 0x635100, 0x186700, 0x007200, 0x007331, 0x006a84, 0x000000, 0x000000, 0x000000,
+    0xfeffff, 0x2fa8ff, 0x5d81ff, 0x9c70ff, 0xf772ff, 0xff77bd, 0xff7e75, 0xff8a2b, 0xcda000, 0x81b802, 0x3dc830, 0x12cd7b, 0x0dc5d0, 0x3c3c3c, 0x000000, 0x000000,
+    0xfeffff, 0xa4deff, 0xb1c8ff, 0xccbeff, 0xf4c3ff, 0xffc5ea, 0xffc7c9, 0xffcdaa, 0xefd696, 0xd0e095, 0xb3e7a5, 0x9feac3, 0x91e8e6, 0xafafaf, 0x000000, 0x000000
+};
+
 int num_cycles = 0;
 
 int num_prg, num_chr;
@@ -70,6 +77,7 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
         }
     }
 }
+
 
 int load_rom(int argc, char** argv) {
 
@@ -229,10 +237,13 @@ int main(int argc, char** argv) {
 
             if (dut->vga_scanline < V_RES && dut->vga_cycle < H_RES) {
                 Pixel* p = &(*screenbuffer)[dut->vga_scanline*H_RES + dut->vga_cycle];
+
+                int idx = (dut->vga_luma * 16) + dut->vga_hue;
+                
                 p->a = 0xFF;  // transparency
-                p->b = dut->vga_b * 85;
-                p->g = dut->vga_g * 85;
-                p->r = dut->vga_r * 85;
+                p->b = (PALETTE[idx]) & 0xff;
+                p->g = (PALETTE[idx] >> 8) & 0xff;
+                p->r = (PALETTE[idx] >> 16) & 0xff;
             }
 
             // Process memory access requests
