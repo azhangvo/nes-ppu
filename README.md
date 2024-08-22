@@ -1,5 +1,5 @@
 # CS 350 Final Project - NES in Verilog
-Spring 2024: Advanced Comp. Arch. - Dr. Siddartha Chatterjee
+Spring 2024: Advanced Comp. Arch. - Dr. Siddhartha Chatterjee
 
 Group: Raghav Rangan (rvr376), Kevin Zhao, Arthur Zhang
 
@@ -72,6 +72,14 @@ Files reused:
 - `apu.v`: Audio Processing unit, used for controllers
 
 **Use `make run` to run our impl**
+
+#### Demos
+
+[[Donkey Kong](videos/DonkeyKongDemo.mp4)]
+[[CluCluLand](videos/CluCluLandDemo.mp4)]
+[[Popeye](videos/PopeyeDemo.mp4)]
+[[Solitaire](videos/SolitaireDemo.mp4)]
+[[Volleball](videos/VolleyballDemo.mp4)]
 
 ## Conclusions
 
