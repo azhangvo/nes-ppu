@@ -112,6 +112,8 @@ module PPU(
 
     reg [7:0] bg_nametable_addr;
 
+    reg [1:0] nametable_addr;
+
     wire [7:0] cam_position_x;
     wire [7:0] cam_position_y;
     reg [7:0] cam_offset_x;
@@ -207,6 +209,7 @@ module PPU(
                     PPUSCROLL[15:8] <= din;
                 else
                     PPUSCROLL[7:0] <= din;
+                // $display("wrote %d %b", w, din);
                 w <= !w;
             end
             if (ain == 6 && write) begin
@@ -256,7 +259,13 @@ module PPU(
             end
 
             if (cycle == 251) begin
-                scroll_y <= scroll_y + 1;
+                if (scroll_y == 239) begin
+                    nametable_addr[1] <= !nametable_addr[1];
+                    scroll_y <= 0;
+                end 
+                else begin
+                    scroll_y <= scroll_y + 1;
+                end
                 // TODO: deal with nametable rollover
             end
 
@@ -273,6 +282,7 @@ module PPU(
                 coarse_scroll_x <= PPUSCROLL[15:11];
                 fine_scroll_x <= PPUSCROLL[10:8];
                 scroll_y <= PPUSCROLL[7:0];
+                nametable_addr <= PPUCTRL[1:0];
             end
         end
     end
@@ -302,8 +312,8 @@ module PPU(
 
     assign vram_a = 
             ain == 7 && (write || read)  ?  PPUADDR[13:0]                                                      :
-            background_stage[2:1] == 0   ?  {2'b10, PPUCTRL[1:0], scroll_y[7:3], coarse_scroll_x}                :
-            background_stage[2:1] == 1   ?  {2'b10, PPUCTRL[1:0], 2'b11, 2'b11, scroll_y[7:5], coarse_scroll_x[4:2]}  :
+            background_stage[2:1] == 0   ?  {2'b10, nametable_addr, scroll_y[7:3], coarse_scroll_x}                :
+            background_stage[2:1] == 1   ?  {2'b10, nametable_addr, 2'b11, 2'b11, scroll_y[7:5], coarse_scroll_x[4:2]}  :
             background_stage[2:1] == 2   ?  {1'b0, cycle >= 256 && cycle < 320 ? PPUCTRL[3] : PPUCTRL[4], cycle >= 256 && cycle < 320 ? sprite_nametable_address : bg_nametable_addr, 1'b0, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
             background_stage[2:1] == 3   ?  {1'b0, cycle >= 256 && cycle < 320 ? PPUCTRL[3] : PPUCTRL[4], cycle >= 256 && cycle < 320 ? sprite_nametable_address : bg_nametable_addr, 1'b1, cycle >= 256 && cycle < 320 ? sprite_scroll_y : scroll_y[2:0]}         :
             14'b0;

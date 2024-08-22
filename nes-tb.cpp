@@ -82,7 +82,7 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
 int load_rom(int argc, char** argv) {
 
     // TODO can change to use CLI
-    const char* filepath = "roms/supermariobros.nes";
+    const char* filepath = "roms/cluclu.nes";
     
     // Open file and get size
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);

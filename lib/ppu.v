@@ -73,6 +73,7 @@ module LoopyGen(input clk, input ce,
         loopy_t[9:5] <= din[7:3];
         loopy_t[14:12] <= din[2:0];
       end
+      $display("wrote %d %b", ppu_address_latch, din);
       ppu_address_latch <= !ppu_address_latch;
     end else if (write && ain == 6) begin
       if (!ppu_address_latch) begin
