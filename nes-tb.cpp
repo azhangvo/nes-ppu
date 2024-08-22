@@ -82,7 +82,7 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
 int load_rom(int argc, char** argv) {
 
     // TODO can change to use CLI
-    const char* filepath = "roms/cluclu.nes";
+    const char* filepath = "roms/supermariobros.nes";
     
     // Open file and get size
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
@@ -193,22 +193,16 @@ int main(int argc, char** argv) {
     auto *dut = new Vnes_tb{contextp};
     Verilated::traceEverOn(true);
 
-    // dut->write_enable = 0;
-    // dut->reset = 1;
-    // dut->ce = 0;
-    // run_for_cycles(dut, 1);
-
-    dut->reset = 0;
-    // run_for_cycles(dut, 2);
-    
-    dut->ce = 1;
-
-    // reset_cycles(dut);
-
     // Give mapper flags to the nes module
     dut->mapper_flags = rom_flags;
 
-    // write_image(dut);
+    dut->write_enable = 0;
+    dut->reset = 1;
+    dut->ce = 0;
+    run_for_cycles(dut, 100);
+
+    dut->reset = 0;    
+    dut->ce = 1;
 
     uint64_t start_ticks = SDL_GetPerformanceCounter();
     uint64_t frame_count = 0;
