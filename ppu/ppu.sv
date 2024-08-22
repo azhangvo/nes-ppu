@@ -300,6 +300,7 @@ module PPU(
             if (cycle == 320) begin
                 coarse_scroll_x <= PPUSCROLL[15:11];
                 fine_scroll_x <= PPUSCROLL[10:8];
+                nametable_addr[0] <= PPUCTRL[0];
             end
 
             if (scanline == 9'b111111111 && cycle == 319) begin // load starting scroll positions into internal registers before cycle 320 of scanline -1

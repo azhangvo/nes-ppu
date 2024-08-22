@@ -82,7 +82,7 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
 int load_rom(int argc, char** argv) {
 
     // TODO can change to use CLI
-    const char* filepath = "roms/cluclu.nes";
+    const char* filepath = "roms/volleball.nes";
     
     // Open file and get size
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
@@ -214,7 +214,7 @@ int main(int argc, char** argv) {
     bool prev_do_cpu_read = false, prev_do_ppu_read = false;
 
     while (!quit) {
-        // if(frame_count >= 70) {
+        // if(frame_count >= 60) {
         //     break;
         // }
         // if(frame_count == 40) {
