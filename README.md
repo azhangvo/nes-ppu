@@ -13,7 +13,7 @@ We based our code on the following repository which implemented an NES system to
 
 We used the CPU, Memory Mapper, and most of the mainboard logic implemented in the repo as is, and rewrote the PPU from scratch, based only on the original design's input/output port signatures. Since we are not running our implementation on FPGA, major changes were made to `nes_tb.v`, to support simulating display and input. We also wrote our own custom ROM loader to place game code in memory, since we use an array to simulate RAM.
 
-Our final design was able to successfully render and play **Donkey Kong** and **Super Mario Bros**, and is set up to have any NES ROM loaded and played, which goes beyond our original scope of just being able to handle **SMB**.
+Our final design was able to successfully render and play **Donkey Kong** and multiple other games, achieving our original goal of being able to run + play NES games.
 
 ### Display and Input
 
@@ -25,7 +25,7 @@ Input is also handled by SDL2, and we use keyboard input to simulate an NES cont
 
 To run a game with our NES modules, we need to load a game ROM. I got game romes from archive.org (specifically [here](https://ia802706.us.archive.org/view_archive.php?archive=/3/items/ni-roms/roms/Nintendo%20-%20Nintendo%20Entertainment%20System%20%28Headered%29.zip) for relevant NES ones). We read the 16 byte header to extract the mapper number and number of pages ([reference](https://www.nesdev.org/wiki/INES#Flags_7) for header information). Then, we copy the rest of the ROM into our memory block. In this design, we use one memory block to store the ROM, RAM, etc. and just index into it accordingly - big array with ROM, CPU-RAM, CHR-VRAM placed one after the other.
 
-During simulation, we keep track of requests for memory read and write operations, and perform the appropriate actions/return the correct data to the nes module. For memory accesses, we differentiate between the different types of accesses and index into the right place in memory. 
+When simulation starts, we pass in the correct flags for the memory mapper according to the iNES header. We then pass a reset signal and program execution starts at the reset vector location ($FFFC-$FFFD). During simulation, we keep track of requests for memory read and write operations, and perform the appropriate actions/return the correct data to the nes module. For memory accesses, we differentiate between the different types of accesses to index into the right place in memory. 
 
 ### PPU Implementation
 
