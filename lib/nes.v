@@ -265,6 +265,9 @@ module NES(input clk, input reset, input ce,
   //     // $display("%d %d: %x %x %d %d %d %d %x %x", scanline, cycle, addr[2:0], dbus, dma_aout_enable, ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, ppu_dout, chr_from_ppu);
   //     $display("%d %d: %x %d %d %d %x", scanline, cycle, addr[2:0], nmi, chr_read, chr_write, chr_addr);
   //   end
+  //   if(ce && scanline == 179 && cycle >= 64 && cycle <= 310) begin
+  //     $display("- %d %d: %d %b %b %b %d %d %d %d %d %d %x %b %b", scanline, cycle, reset, color, dbus, ppu_dout, addr[2:0], ppu_cs && mr_ppu, ppu_cs && mw_ppu, nmi, chr_read, chr_write, chr_addr, chr_to_ppu, chr_from_ppu);
+  //   end
   // end
 
   // -- Memory mapping logic

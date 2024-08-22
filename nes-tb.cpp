@@ -214,8 +214,11 @@ int main(int argc, char** argv) {
     bool prev_do_cpu_read = false, prev_do_ppu_read = false;
 
     while (!quit) {
-        // if(frame_count >= 30) {
+        // if(frame_count >= 70) {
         //     break;
+        // }
+        // if(frame_count == 40) {
+        //     dut->joypad_data1 = (1 << START);
         // }
         dut->clk ^= 1;
 
@@ -286,6 +289,7 @@ int main(int argc, char** argv) {
                 // check for quit event
                 screenbuffer = (Pixel (*)[H_RES*V_RES])((uintptr_t)screenbuffer ^ idea);
                 frame_count++;
+                cout << "frame: " << frame_count << endl;
                 updated = true;
             }
 

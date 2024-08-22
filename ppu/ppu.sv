@@ -103,6 +103,7 @@ module PPU(
     reg [7:0]  PPUDATA;
     reg        w;
     reg        is_in_vblank;
+    reg        nmi_active;
 
     reg [4:0] coarse_scroll_x;
     reg [2:0] fine_scroll_x;
@@ -153,7 +154,7 @@ module PPU(
         PPUADDR = 0;
     end
 
-    assign is_end_of_scanline = (!is_even && scanline == 9'b111111111 && !is_in_vblank && PPUMASK[4:3] != 0) ? cycle == 339 : cycle == 340;
+    assign is_end_of_scanline = (!is_even && scanline == 9'b111111111 && !is_in_vblank && PPUMASK[4:3] != 0) ? cycle >= 339 : cycle >= 340;
     assign is_end_of_frame = is_end_of_scanline && scanline == 260;
 
     always @ (posedge clk) begin
@@ -173,26 +174,34 @@ module PPU(
 
             if(is_end_of_scanline && scanline == 240) begin
                 is_in_vblank <= 1;
+                nmi_active <= 1;
+                // $display("entering vblank");
             end
             if(is_end_of_frame) begin
                 is_in_vblank <= 0;
+                nmi_active <= 0;
+                // $display("exiting vblank 1");
             end
         end
     end
 
-    assign nmi = is_in_vblank && PPUCTRL[7];
+    assign nmi = nmi_active && PPUCTRL[7];
                                  
     always @ (posedge clk) begin
         if (ce) begin
             if (ain == 0 && write) begin
                 PPUCTRL <= din;
+                // $display("writing ppuctrl %b", din);
             end
             if (ain == 1 && write) begin
                 PPUMASK <= din;
+                // $display("writing ppumask %b", din);
             end
             if (ain == 2 && read) begin
-                is_in_vblank <= 0;
+                nmi_active <= 0;
                 w <= 0;
+                // if(nmi_active)
+                //     $display("exiting vblank 2");
             end
             if (ain == 3 && write) begin
                 OAMADDR <= din;
@@ -209,7 +218,7 @@ module PPU(
                     PPUSCROLL[15:8] <= din;
                 else
                     PPUSCROLL[7:0] <= din;
-                // $display("wrote %d %b", w, din);
+                // $display("writing ppuscroll %d %b", w, din);
                 w <= !w;
             end
             if (ain == 6 && write) begin
@@ -229,11 +238,26 @@ module PPU(
         end
     end
 
+    reg [7:0] vram_din_latch;
+    reg       vram_din_read_prev;
+
+    always @ (posedge clk) begin
+        if(vram_din_read_prev)
+            vram_din_latch <= vram_din;
+        vram_din_read_prev <= vram_r;
+    end
+
     always @* begin
         if (ain == 2) begin
-            ldout = {is_in_vblank, PPUSTATUS};
-        end else begin
+            ldout = {nmi_active, PPUSTATUS};
+        end else if(ain == 4) begin
             ldout = 8'b0;
+        end else begin
+            if(PPUADDR[13:8] == 6'b111111) begin
+                ldout = 8'b0;
+            end else begin
+                ldout = vram_din_latch;
+            end
         end
     end
 
@@ -251,11 +275,12 @@ module PPU(
         if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
             if (cycle[2:0] == 4 && ((cycle >= 1 && cycle <= 256) || (cycle >= 320 && cycle < 336))) begin
                 coarse_scroll_x <= coarse_scroll_x + 1;
-                // TODO: deal with nametable rollover
+                if(coarse_scroll_x == 31) begin
+                    nametable_addr[0] <= !nametable_addr[0];
+                end
             end
             if ((cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336)) begin
                 fine_scroll_x <= fine_scroll_x + 1;
-                // TODO: deal with nametable rollover
             end
 
             if (cycle == 251) begin
@@ -266,7 +291,6 @@ module PPU(
                 else begin
                     scroll_y <= scroll_y + 1;
                 end
-                // TODO: deal with nametable rollover
             end
 
             if (cycle >= 257 && cycle < 320) begin
@@ -416,6 +440,9 @@ module PPU(
 
     assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
 
-    wire [4:0] pixel = sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel};
+    wire [4:0] pixel = (PPUMASK[4:3] != 0 && !is_in_vblank && scanline != 240) ? 
+                        (sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel})
+                         : 5'b0;
+    // wire [4:0] pixel = {1'b0, bg_pixel};
     assign color = palette[pixel];
 endmodule
