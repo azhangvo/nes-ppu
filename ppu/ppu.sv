@@ -171,14 +171,10 @@ module PPU(
 
             if(is_end_of_scanline && scanline == 240) begin
                 is_in_vblank <= 1;
-                // $display("activating nmi %d", PPUCTRL);
             end
             if(is_end_of_frame) begin
                 is_in_vblank <= 0;
-                // $display("disabling nmi %d", PPUCTRL);
             end
-
-            // $display("%d %d %d", cycle, is_in_background_stage, background_stage);
         end
     end
 
@@ -187,11 +183,9 @@ module PPU(
     always @ (posedge clk) begin
         if (ce) begin
             if (ain == 0 && write) begin
-                // $display("writing to ppuctrl %x", din);
                 PPUCTRL <= din;
             end
             if (ain == 1 && write) begin
-                // $display("writing to ppumask %x", din);
                 PPUMASK <= din;
             end
             if (ain == 2 && read) begin
@@ -216,7 +210,6 @@ module PPU(
                 w <= !w;
             end
             if (ain == 6 && write) begin
-                // $display("saving address %d %x cycle %d", w, din, cycle);
                 if(!w)
                     PPUADDR[15:8] <= din;
                 else
@@ -230,14 +223,12 @@ module PPU(
                         palette[PPUADDR[4:0]] <= din[5:0];
                 end
             end
-            // if (ain == )
         end
     end
 
     always @* begin
         if (ain == 2) begin
             ldout = {is_in_vblank, PPUSTATUS};
-            // $display("reading ppustatus %x %x %x", {is_in_vblank, PPUSTATUS}, ldout, dout);
         end else begin
             ldout = 8'b0;
         end
@@ -257,12 +248,10 @@ module PPU(
         if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
             if (cycle[2:0] == 4 && ((cycle >= 1 && cycle <= 256) || (cycle >= 320 && cycle < 336))) begin
                 coarse_scroll_x <= coarse_scroll_x + 1;
-                // $display("increment %d %d %x", scanline, cycle, coarse_scroll_x);
                 // TODO: deal with nametable rollover
             end
             if ((cycle >= 1 && cycle < 256) || (cycle >= 320 && cycle < 336)) begin
                 fine_scroll_x <= fine_scroll_x + 1;
-                // $display("increment %d %d %x", scanline, cycle, coarse_scroll_x);
                 // TODO: deal with nametable rollover
             end
 
@@ -283,7 +272,6 @@ module PPU(
             if (scanline == 9'b111111111 && cycle == 319) begin // load starting scroll positions into internal registers before cycle 320 of scanline -1
                 coarse_scroll_x <= PPUSCROLL[15:11];
                 fine_scroll_x <= PPUSCROLL[10:8];
-                // $display("reset %x", PPUSCROLL[15:8]);
                 scroll_y <= PPUSCROLL[7:0];
             end
         end
@@ -312,9 +300,6 @@ module PPU(
             sprite_pixel_list[6][4] ? sprite_pixel_list[6] :
             sprite_pixel_list[7][4] ? sprite_pixel_list[7] : sprite_pixel_list[0];
 
-
-    // We want to start loading tile 3 on tick 1
-    // Bit construct 0010bbhhhhhwwwww
     assign vram_a = 
             ain == 7 && (write || read)  ?  PPUADDR[13:0]                                                      :
             background_stage[2:1] == 0   ?  {2'b10, PPUCTRL[1:0], scroll_y[7:3], coarse_scroll_x}                :
@@ -330,7 +315,6 @@ module PPU(
 
     assign vram_w =
             ain == 7 && write && PPUADDR[13:8] != 6'b111111  ?  1  :
-            // ain == 7 && write ?  1  :
             0;
 
     reg  [7:0]  bg_palette_latch_1;
@@ -342,7 +326,6 @@ module PPU(
     wire [3:0]  bg_pixel;
 
     always @ (posedge clk) begin
-        // if (ce && !is_in_vblank && scanline != 240 && PPUMASK[4:3] != 0) begin
         if (cycle <= 336 && cycle > 0) begin
             bg_palette_shift_reg_1[14:0] <= bg_palette_shift_reg_1[15:1];
             bg_palette_shift_reg_2[14:0] <= bg_palette_shift_reg_2[15:1];
@@ -362,11 +345,6 @@ module PPU(
             end
             if(cycle[2:0] == 0) begin
                 // Pattern table #1
-                // {<<8{array}}
-                // bg_palette_shift_reg_2[15:8] <= vram_din;
-                // bg_palette_shift_reg_1[15:8] <= bg_palette_latch_1;
-                // bg_attrib_shift_reg_1[7] <= bg_attrib_latch[0];
-                // bg_attrib_shift_reg_2[7] <= bg_attrib_latch[1];
                 bg_palette_shift_reg_2[15:8] <= {<<{vram_din}};
                 bg_palette_shift_reg_1[15:8] <= {<<{bg_palette_latch_1}};
                 bg_attrib_shift_reg_1[7] <= bg_attrib_latch[0];
@@ -427,34 +405,7 @@ module PPU(
     end
 
     assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
-    // assign bg_pixel = {2'b00, bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
-    // assign bg_pixel = {bg_attrib_shift_reg_1[0], bg_attrib_shift_reg_2[0], bg_palette_shift_reg_2[0], bg_palette_shift_reg_1[0]}; // TODO implement fine x
-    // assign bg_pixel = {bg_attrib_shift_reg_2[0], bg_attrib_shift_reg_1[0], bg_palette_shift_reg_1[0], bg_palette_shift_reg_2[0]}; // TODO implement fine x
 
     wire [4:0] pixel = sprite_pixel[4] ? sprite_pixel : {1'b0, bg_pixel};
-    // assign color = scanline < 80 && cycle < 65 ? 6'b110000 : palette[pixel];
     assign color = palette[pixel];
-
-    always @ (posedge clk) begin
-        // if (scanline >= 72 && scanline < 88 && ((cycle >= 57 - 8 && cycle <= 73))) begin
-        //     $display("%d %d %x %d %b %b %b %b %b %b", scanline, cycle, vram_a, vram_r, vram_din, bg_pixel, bg_attrib_shift_reg_1, bg_attrib_shift_reg_2, bg_palette_shift_reg_1, bg_palette_shift_reg_2);
-        // end
-        // if (scanline >= 190 && scanline < 202 && cycle == 2) begin
-        //     $display("%d %d %x %d %b", scanline, cycle, vram_a, vram_r, vram_din);
-        // end
-        // if (cycle == {3'b100, 3'b0, 3'b101} || cycle == {3'b100, 3'b0, 3'b110}) begin
-        //     $display("%x %d %x", vram_a, vram_r, din);
-        // end
-        // if (ce && bg_pixel != 0) begin
-        //     $display("%d pixel %x %x", scanline, bg_pixel, color);
-        // end
-        // if (vram_w) begin
-        //     $display("writing, addr %x %b", vram_a, vram_dout);
-        // end
-        // if (vram_r) begin
-        //     $display("nametable %d scanline %d cycle %d", PPUCTRL[2], scanline, cycle);
-        //     $display("reading addr %x -> value %x", vram_a, vram_din);
-        // end
-    end
-
 endmodule
