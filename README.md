@@ -13,7 +13,7 @@ We based our code on the following repository which implemented an NES system to
 
 We used the CPU, Memory Mapper, and most of the mainboard logic implemented in the repo as is, and rewrote the PPU from scratch, based only on the original design's input/output port signatures. Since we are not running our implementation on FPGA, major changes were made to `nes_tb.v`, to support simulating display and input. We also wrote our own custom ROM loader to place game code in memory, since we use an array to simulate RAM.
 
-Our final design was able to successfully render and play **Donkey Kong** and multiple other games, achieving our original goal of being able to run + play NES games.
+Our final design was able to successfully render and play **Donkey Kong** and multiple other games (including **Clu Clu Land**, **Solitaire**, **Popeye**, etc.), with demo runs in the videos folder, achieving our original goal of being able to run + play NES games.
 
 ### Display and Input
 
