@@ -82,7 +82,7 @@ void run_for_cycles(Vnes_tb* dut, int cycles) {
 int load_rom(int argc, char** argv) {
 
     // TODO can change to use CLI
-    const char* filepath = "roms/donkeykong.nes";
+    const char* filepath = "roms/cluclu.nes";
     
     // Open file and get size
     std::ifstream file(filepath, std::ios::binary | std::ios::ate);
@@ -106,15 +106,17 @@ int load_rom(int argc, char** argv) {
     uint8_t mapper_low = (header[6] >> 4) & 0x0F;  // Low nibble from byte 6
     uint8_t mapper_high = (header[7] >> 4) & 0x0F;  // High nibble from byte 7
     uint8_t mapper_number = (mapper_high << 4) | mapper_low;
-    printf("Mapper Number: %u\n", static_cast<int>(mapper_number));
+    printf("Mapper Number: %u\n", mapper_number);
 
     // Get number of pages
     num_prg = header[4] & 0x07;
     num_chr = header[5] & 0x07;
     printf("prg_size: %u, chr_size: %u\n", num_prg, num_chr);
 
+    bool vertical_mirroring = header[6] & 0x01;
+
     // Flags to give to memory mapper
-    rom_flags = mapper_number | ((num_prg - 1) << 8) | ((num_chr - 1) << 11) | (1 << 15);
+    rom_flags = mapper_number | ((num_prg - 1) << 8) | ((num_chr - 1) << 11) | (vertical_mirroring << 14) | (1 << 15);
     printf("mapper flags: %u\n", rom_flags);
 
     std::streamsize data_size = size - 16;
