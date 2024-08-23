@@ -1,7 +1,7 @@
 # CS 350 Final Project - NES in Verilog
 Spring 2024: Advanced Comp. Arch. - Dr. Siddhartha Chatterjee
 
-Group: Raghav Rangan (rvr376), Kevin Zhao, Arthur Zhang
+Group: Raghav Rangan (rvr376), Kevin Zhao (kgz96), Arthur Zhang
 
 ## Intro
 
