@@ -1,6 +1,8 @@
 .PHONY: run clean clean_images format
 
 SV_FILES=`cat sv_files.txt`
+SDL_CFLAGS = `sdl2-config --cflags`
+SDL_LDFLAGS = `sdl2-config --libs`
 
 all: build
 
@@ -14,14 +16,16 @@ prep_dirs: clean_images
 	mkdir -p output/hex output/png
 
 build: 
-	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} ppu/ppu.sv nes-tb.cpp -DLOAD_PROG
+	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} ppu/ppu.sv nes-tb.cpp -DLOAD_PROG \
+	-CFLAGS "${SDL_CFLAGS}" -LDFLAGS "${SDL_LDFLAGS}"
 
 run: build prep_dirs
 	./obj_dir/Vnes_tb
 	make images
 
 build_baseline:
-	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} lib/ppu.v nes-tb.cpp -DLOAD_PROG
+	verilator --cc --exe --build --timing -j 0 --top-module nes_tb ${SV_FILES} lib/ppu.v nes-tb.cpp  -DLOAD_PROG \
+	-CFLAGS "${SDL_CFLAGS}" -LDFLAGS "${SDL_LDFLAGS}"
 	
 
 run_baseline: build_baseline prep_dirs
@@ -39,3 +43,9 @@ clean:
 
 format:
 	verible-verilog-format ${SV_FILES} --inplace && clang-format *.cpp -i
+
+compare:
+	make clean
+	make run > new.out
+	make clean
+	make run_baseline > old.out

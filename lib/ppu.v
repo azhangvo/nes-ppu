@@ -73,6 +73,7 @@ module LoopyGen(input clk, input ce,
         loopy_t[9:5] <= din[7:3];
         loopy_t[14:12] <= din[2:0];
       end
+      // $display("writing ppuscroll %d %b", ppu_address_latch, din);
       ppu_address_latch <= !ppu_address_latch;
     end else if (write && ain == 6) begin
       if (!ppu_address_latch) begin
@@ -82,6 +83,7 @@ module LoopyGen(input clk, input ce,
         loopy_t[7:0] <= din;
         loopy_v <= {loopy_t[14:8], din};
       end
+      // $display("saving address %d %x cycle %d", ppu_address_latch, din, cycle);
       ppu_address_latch <= !ppu_address_latch;
     end else if (read && ain == 2) begin
       ppu_address_latch <= 0; //Reset PPU address latch
@@ -642,8 +644,9 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
         bg_patt <= din[4];
         obj_size <= din[5];
         vbl_enable <= din[7];
+        // $display("writing ppuctrl %b", din);
         
-        //$write("PPU Control #0 <= %X\n", din);
+        // $write("PPU Control #0 <= %X\n", din);
       end
       1: begin // PPU Control Register 2
         grayscale <= din[0];
@@ -654,6 +657,7 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
         color_intensity <= din[7:5];
         if (!din[3] && scanline == 59)
           $write("Disabling playfield at cycle %d\n", cycle);
+        // $display("writing ppumask %b", din);
       end
       endcase
     end
@@ -667,6 +671,9 @@ module PPU(input clk, input ce, input reset,   // input clock  21.48 MHz / 4. 1 
     // Reset NMI register when reading from Status
     if (read && ain == 2)
       nmi_occured <= 0;
+    // if (vram_w) begin
+    //     $display("writing, addr %x", vram_a);
+    // end
   end
   
   // If we're triggering a VBLANK NMI 

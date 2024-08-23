@@ -4,22 +4,31 @@ module nes_tb (
 
     input wire clk,
     input wire reset,
-    input wire ce
+    input wire ce,
+
+    input wire [31:0] mapper_flags,
+    input wire [7:0]  memory_din_cpu,
+    input wire [7:0]  memory_din_ppu,
+
+    input logic [7:0] joypad_data1,
+    input logic [7:0] joypad_data2,
+
+    output logic [1:0]  vga_luma,
+    output logic [3:0]  vga_hue,
+    output logic [8:0]  vga_cycle,
+    output logic [8:0]  vga_scanline,
+
+    output logic [21:0] memory_addr,
+    output logic        memory_read_cpu,
+    output logic        memory_read_ppu,
+    output logic        memory_write,
+    output logic [7:0]  memory_dout
 );
-    reg  [31:0] mapper_flags;
     wire [15:0] sample;
     wire [5:0]  color;
     wire        joypad_strobe;
     wire [1:0]  joypad_clock;
-    reg  [1:0]  joypad_data;
     reg  [4:0]  audio_channels;
-    wire [21:0] memory_addr;
-    wire        memory_read_cpu;
-    reg  [7:0]  memory_din_cpu;
-    wire        memory_read_ppu;
-    reg  [7:0]  memory_din_ppu;
-    wire        memory_write;
-    wire [7:0]  memory_dout;
     wire [8:0]  cycle;
     wire [8:0]  scanline;
     wire [31:0] dbgadr;
@@ -35,7 +44,7 @@ module nes_tb (
         .color(color),
         .joypad_strobe(joypad_strobe),
         .joypad_clock(joypad_clock),
-        .joypad_data(joypad_data),
+        .joypad_data({joypad_bits2[0], joypad_bits[0]}),
         .audio_channels(audio_channels),
         .memory_addr(memory_addr),
         .memory_read_cpu(memory_read_cpu),
@@ -50,31 +59,35 @@ module nes_tb (
         .dbgctr(dbgctr)
     );
 
-    // Testbench procedure
+    reg [1:0] last_joypad_clock;
+    reg [7:0] joypad_bits, joypad_bits2;
+
+    always @(posedge clk) begin
+        if (joypad_strobe) begin
+            joypad_bits <= joypad_data1;
+            joypad_bits2 <= joypad_data2;
+        end
+        if (!joypad_clock[0] && last_joypad_clock[0]) begin
+            joypad_bits <= {1'b0, joypad_bits[7:1]};
+        end
+        if (!joypad_clock[1] && last_joypad_clock[1])
+            joypad_bits2 <= {1'b0, joypad_bits2[7:1]};
+        last_joypad_clock <= joypad_clock;
+    end
+
     initial begin
-        // Initialize signals
-        mapper_flags    = 0;
-        joypad_data     = 0;
-        audio_channels  = 0;
-        memory_din_cpu  = 0;
-        memory_din_ppu  = 0;
-
-        mapper_flags    = 32'h12345678;  // Example mapper flags
-        joypad_data     = 2'b10;         // Example joypad data
-        audio_channels  = 5'b11111;      // Enable all audio channels
-
-        // Simulate some memory operations
-        memory_din_cpu = 8'hAA;       // Example CPU memory data
-        memory_din_ppu = 8'hBB;       // Example PPU memory data
+        // audio_channels  = 5'b11111;      // Enable all audio channels
     end
 
     // Capture pixel data
-    reg [7:0] frame_buffer [0:256*240-1]; // Example for 256x240 resolution
+    reg [7:0] frame_buffer [0:256*240-1];
     always @(posedge clk) begin
         if (ce) begin
-            if (scanline < 240 && cycle < 256) begin
-                frame_buffer[scanline * 256 + cycle] <= {2'b00, color}; // Capture pixel data
-            end
+            vga_scanline = scanline;
+            vga_cycle = cycle;
+            vga_luma = color[5:4];
+            vga_hue = color[3:0];
+
         end
     end
 
