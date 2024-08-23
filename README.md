@@ -75,11 +75,7 @@ Files reused:
 
 #### Demos
 
-[[Donkey Kong](videos/DonkeyKongDemo.mp4)]
-[[CluCluLand](videos/CluCluLandDemo.mp4)]
-[[Popeye](videos/PopeyeDemo.mp4)]
-[[Solitaire](videos/SolitaireDemo.mp4)]
-[[Volleball](videos/VolleyballDemo.mp4)]
+[Link to folder](https://drive.google.com/drive/folders/1mQDAM4fQX_pcUnr0vnwfb5lK0igaKbSv?usp=sharing)
 
 ## Conclusions
 
